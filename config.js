@@ -2,7 +2,7 @@
 //
 // サーバーをまだ立てていない間は空文字にしておく。その場合、各ゲームの「サーバー対戦」タブは
 // 接続先の入力欄が空のまま開くだけで、ブラウザ内の対戦（サンプル戦略・自作コード）は普通に動く。
-window.KAGEMUSHA_API = "";
+window.KAGEMUSHA_API = "https://kagemusha-api.onrender.com";
 
 // URL に ?api=https://... を付けるとその場で切り替えられる（動作確認用）。
 (function () {
