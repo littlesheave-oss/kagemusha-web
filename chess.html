@@ -1,0 +1,1141 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>影武者 チェス 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+  :root{
+    color-scheme: dark;
+    --sumi:#13100E; --sumi-2:#1C1815; --sumi-3:#251F1A; --line:#3A312A;
+    --washi:#EEE4D2; --washi-dim:#A99C87;
+    --kin:#CBA23F; --shu:#C2392B; --ok:#7FA96B;
+    --mincho:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+    --gothic:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--sumi); color:var(--washi); font-family:var(--gothic); font-size:14px; line-height:1.7;
+    background-image:
+      radial-gradient(120% 80% at 50% -10%, rgba(203,162,63,.10), transparent 60%),
+      repeating-linear-gradient(115deg, rgba(255,255,255,.012) 0 2px, transparent 2px 7px);
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  img{max-width:100%}
+  [hidden]{display:none !important}
+  .wrap{max-width:1100px; margin:0 auto; padding-inline:16px; padding-block:clamp(18px,4vw,36px)}
+
+  .masthead{display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap;
+    border-bottom:1px solid var(--line); padding-bottom:14px}
+  .brand{display:flex; align-items:baseline; gap:12px}
+  .brand h1{font-family:var(--mincho); font-weight:700; font-size:clamp(24px,6vw,36px); margin:0; letter-spacing:.14em}
+  .brand .romaji{font-size:11px; letter-spacing:.34em; color:var(--washi-dim); text-transform:uppercase}
+  .matchno{font-size:11px; letter-spacing:.2em; color:var(--washi-dim); font-variant-numeric:tabular-nums}
+
+  .card-row{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:12px; margin-block:18px}
+  @media (max-width:640px){ .card-row{grid-template-columns:1fr} .player.b{flex-direction:row; text-align:left} }
+  .player{display:flex; align-items:center; gap:12px; min-width:0}
+  .player.b{flex-direction:row-reverse; text-align:right}
+  .crest{width:38px; height:38px; flex:none; display:grid; place-items:center; border-radius:3px; font-size:23px; line-height:1}
+  .crest.w{background:linear-gradient(160deg,#EDE2CB,#C3B698); color:#241B12; border:1px solid #8E8069}
+  .crest.b{background:linear-gradient(160deg,#2B2622,#100E0C); color:#D9CEB6; border:1px solid #4B4239}
+  .pname{font-family:var(--mincho); font-size:16px; letter-spacing:.06em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .meta{font-size:11px; color:var(--washi-dim); letter-spacing:.06em}
+  .versus{font-family:var(--mincho); font-size:13px; color:var(--washi-dim); letter-spacing:.3em; text-align:center}
+
+  .evaltrack{height:6px; border-radius:99px; background:#171412; overflow:hidden; border:1px solid var(--line)}
+  .evalfill{height:100%; width:50%; background:linear-gradient(90deg,#EFE6D0,#BEB197); transition:width .5s cubic-bezier(.22,.9,.25,1)}
+  .evalrow{display:flex; justify-content:space-between; font-size:11px; color:var(--washi-dim); letter-spacing:.08em;
+    margin:6px 0 20px; font-variant-numeric:tabular-nums}
+
+  .stage{display:grid; grid-template-columns:minmax(0,1fr) 280px; gap:24px; align-items:start}
+  @media (max-width:900px){ .stage{grid-template-columns:1fr} }
+  .boardcol{display:flex; flex-direction:column; gap:10px; min-width:0}
+
+  .tray{display:flex; align-items:center; gap:10px; background:var(--sumi-2); border:1px solid var(--line);
+    border-radius:4px; padding:7px 12px; min-height:42px}
+  .tray .label{font-family:var(--mincho); font-size:12px; letter-spacing:.2em; color:var(--washi-dim); flex:none}
+  .tray .taken{display:flex; gap:1px; font-size:20px; line-height:1; flex-wrap:wrap}
+  .tray .taken .w{color:#E6DAC1} .tray .taken .b{color:#8A8175}
+  .tray .none{font-size:12px; color:#6F6455}
+  .tray .adv{margin-left:auto; font-size:12px; color:var(--kin); font-variant-numeric:tabular-nums; flex:none}
+
+  .scene{position:relative; width:100%; aspect-ratio:4/3; min-height:320px; border-radius:6px; overflow:hidden;
+    border:1px solid #2A2018; background:linear-gradient(180deg,#191512,#0D0B09);
+    box-shadow:0 22px 44px rgba(0,0,0,.6)}
+  .scene canvas{display:block; width:100%; height:100%; touch-action:none; cursor:grab}
+  .scene canvas:active{cursor:grabbing}
+  .scene .hint{position:absolute; left:10px; bottom:8px; font-size:10px; letter-spacing:.14em; color:rgba(238,228,210,.45)}
+  .scene .fallback{position:absolute; inset:0; display:grid; place-items:center; padding:20px; text-align:center; color:var(--washi-dim)}
+
+  .controls{display:flex; gap:8px; flex-wrap:wrap; justify-content:center}
+  button{font-family:var(--gothic); font-size:13px; letter-spacing:.1em; color:var(--washi);
+    background:var(--sumi-3); border:1px solid var(--line); border-radius:3px; padding:9px 16px; cursor:pointer;
+    transition:border-color .2s,color .2s}
+  button:hover:not([disabled]){border-color:var(--kin); color:#F6EBD3}
+  button:focus-visible{outline:2px solid var(--kin); outline-offset:2px}
+  button.primary{background:linear-gradient(170deg,#3A2E1C,#241C12); border-color:#6B5426; color:#F0DCA8}
+  button[disabled]{opacity:.45; cursor:default}
+  button.sm{padding:5px 11px; font-size:12px}
+
+  select,input[type="text"],input[type="url"],textarea{
+    font-family:var(--gothic); font-size:13px; color:var(--washi); background:#171310;
+    border:1px solid var(--line); border-radius:3px; padding:7px 9px; width:100%}
+  textarea{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; line-height:1.6; min-height:200px; resize:vertical}
+  select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--kin); outline-offset:1px}
+  label{display:block; font-size:11px; letter-spacing:.14em; color:var(--washi-dim); margin-bottom:5px}
+
+  .panel{background:var(--sumi-2); border:1px solid var(--line); border-radius:4px; overflow:hidden; margin-bottom:16px}
+  .panel h2{margin:0; font-family:var(--mincho); font-size:13px; letter-spacing:.22em; font-weight:500;
+    padding:11px 14px; border-bottom:1px solid var(--line); color:var(--washi-dim)}
+  .panel .body{padding:12px 14px; display:grid; gap:12px}
+  .kifu{list-style:none; margin:0; padding:6px 0; max-height:300px; overflow-y:auto}
+  .kifu li{display:grid; grid-template-columns:30px 1fr auto; gap:10px; align-items:baseline; padding:4px 14px;
+    font-variant-numeric:tabular-nums; border-left:2px solid transparent}
+  .kifu li .n{color:#6F6455; font-size:11px}
+  .kifu li .mv{font-family:var(--mincho); font-size:14px; letter-spacing:.04em}
+  .kifu li .ms{font-size:10px; color:var(--washi-dim)}
+  .kifu li.cur{background:rgba(203,162,63,.08); border-left-color:var(--kin)}
+  .kifu li.bl .mv{color:#BFB49F}
+  .stats{display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line); border-top:1px solid var(--line)}
+  .stats div{background:var(--sumi-2); padding:9px 14px}
+  .stats .k{font-size:10px; letter-spacing:.14em; color:var(--washi-dim)}
+  .stats .v{font-family:var(--mincho); font-size:17px; font-variant-numeric:tabular-nums}
+
+  .tabs{display:flex; gap:6px; border-bottom:1px solid var(--line); margin-bottom:14px; flex-wrap:wrap}
+  .tabs button{border:0; border-bottom:2px solid transparent; background:none; padding:8px 12px; color:var(--washi-dim);
+    font-family:var(--mincho); letter-spacing:.14em; font-size:14px}
+  .tabs button[aria-selected="true"]{color:var(--kin); border-bottom-color:var(--kin)}
+  .row{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  @media (max-width:560px){ .row{grid-template-columns:1fr} }
+  .msg{font-size:12px; border-radius:3px; padding:8px 11px; border:1px solid var(--line); background:#171310; white-space:pre-wrap}
+  .msg.ok{border-color:rgba(127,169,107,.5); color:#CBE3BE}
+  .msg.ng{border-color:rgba(194,57,43,.55); color:#F0B6AE}
+  .list{list-style:none; margin:0; padding:0; display:grid; gap:6px}
+  .list li{display:flex; align-items:center; gap:8px; justify-content:space-between; border:1px solid var(--line);
+    border-radius:3px; padding:7px 10px; background:#171310}
+  .list li .nm{font-family:var(--mincho); font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .list li .acts{display:flex; gap:6px; flex:none}
+  .rank-list li .pt{font-variant-numeric:tabular-nums; color:var(--kin); font-family:var(--mincho)}
+
+  .foot{margin-top:28px; padding-top:14px; border-top:1px solid var(--line); color:var(--washi-dim); font-size:12px; max-width:64ch}
+</style>
+<script src="config.js"></script>
+<style>.kg-home{position:fixed;top:10px;left:12px;z-index:9999;font-size:13px;text-decoration:none;color:#CBA23F;background:rgba(20,18,16,.72);padding:5px 10px;border-radius:999px;border:1px solid rgba(203,162,63,.35);backdrop-filter:blur(6px)}.kg-home:hover{background:rgba(20,18,16,.92)}</style>
+</head>
+<body>
+<a class="kg-home" href="./">← 影武者</a>
+<div class="wrap">
+  <header class="masthead">
+    <div class="brand"><h1>影武者</h1><span class="romaji">Kagemusha</span></div>
+    <span class="matchno">チェス ・ 立体盤 ・ コード同士の対戦</span>
+  </header>
+
+  <div class="card-row">
+    <div class="player">
+      <span class="crest w">♔</span>
+      <div><div class="pname" id="whiteName">白</div><div class="meta" id="whiteMeta"></div></div>
+    </div>
+    <div class="versus">対</div>
+    <div class="player b">
+      <span class="crest b">♚</span>
+      <div><div class="pname" id="blackName">黒</div><div class="meta" id="blackMeta"></div></div>
+    </div>
+  </div>
+
+  <div class="evaltrack"><div class="evalfill" id="evalfill"></div></div>
+  <div class="evalrow"><span id="turnLabel">白番</span><span>駒得（P1・N/B3・R5・Q9）</span></div>
+
+  <div class="stage">
+    <div class="boardcol">
+      <div class="tray" id="trayW"><span class="label">白の取った駒</span><span class="taken"></span><span class="adv"></span></div>
+      <div class="scene" id="scene">
+        <div class="hint">ドラッグで回転 ・ ホイールで寄り引き</div>
+      </div>
+      <div class="tray" id="trayB"><span class="label">黒の取った駒</span><span class="taken"></span><span class="adv"></span></div>
+
+      <div class="controls">
+        <button class="primary" id="play">対局開始</button>
+        <button id="step">1手進める</button>
+        <button id="reset">最初から</button>
+        <button id="viewTop">真上から</button>
+        <select id="speed" style="width:auto">
+          <option value="1400">ゆっくり</option>
+          <option value="750" selected>ふつう</option>
+          <option value="300">はやい</option>
+          <option value="0">一気に</option>
+        </select>
+      </div>
+      <div class="msg" id="gameMsg" hidden></div>
+    </div>
+
+    <aside>
+      <section class="panel">
+        <h2>棋　譜</h2>
+        <ol class="kifu" id="kifu"></ol>
+        <div class="stats">
+          <div><div class="k">手数</div><div class="v" id="ply">0</div></div>
+          <div><div class="k">平均思考</div><div class="v" id="avg">—</div></div>
+          <div><div class="k">50手ルール</div><div class="v" id="fifty">0</div></div>
+          <div><div class="k">同一局面</div><div class="v" id="rep">1</div></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>対戦相手</h2>
+        <div class="body">
+          <div><label for="selW">白</label><select id="selW"></select></div>
+          <div><label for="selB">黒</label><select id="selB"></select></div>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <section class="panel" style="margin-top:26px">
+    <h2>影武者をつくる</h2>
+    <div class="body">
+      <div class="tabs" role="tablist">
+        <button id="tabEdit" role="tab" aria-selected="true" aria-controls="paneEdit">コード</button>
+        <button id="tabMine" role="tab" aria-selected="false" aria-controls="paneMine">マイ影武者</button>
+        <button id="tabServer" role="tab" aria-selected="false" aria-controls="paneServer">サーバー対戦</button>
+      </div>
+      <div id="paneEdit" role="tabpanel">
+        <div class="row">
+          <div><label for="botName">名前</label><input type="text" id="botName" value="疾風"></div>
+          <div style="display:flex; align-items:flex-end; gap:8px">
+            <button id="btnTest">自動テスト</button>
+            <button class="primary" id="btnSave">保存する</button>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <label for="code">bot(state, player, legalMoves) — state = {board, castling, enPassant, halfmoveClock, fullmoveNumber}</label>
+          <textarea id="code" spellcheck="false"></textarea>
+        </div>
+        <div class="msg" id="testMsg" hidden style="margin-top:10px"></div>
+      </div>
+      <div id="paneMine" role="tabpanel" hidden>
+        <ul class="list" id="mineList"></ul>
+        <div class="controls" style="justify-content:flex-start; margin-top:12px">
+          <button class="sm" id="btnExport">エクスポート</button>
+          <button class="sm" id="btnImport">インポート</button>
+          <input type="file" id="fileImport" accept="application/json" hidden>
+        </div>
+        <div class="msg" id="mineMsg" hidden style="margin-top:10px"></div>
+      </div>
+      <div id="paneServer" role="tabpanel" hidden>
+        <div class="row">
+          <div><label for="apiBase">サーバーのURL</label><input type="url" id="apiBase" value="" placeholder="https://..."></div>
+          <div style="display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap">
+            <button id="btnRegister">この影武者を登録</button>
+            <button id="btnRank">ランキング取得</button>
+          </div>
+        </div>
+        <ul class="list rank-list" id="rankList" style="margin-top:12px"></ul>
+        <div class="msg" id="serverMsg" hidden style="margin-top:10px"></div>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot">
+    駒は画像ではなく、その場で削り出した立体です（回転体＋彫り込み、ナイトだけは横向きの型から押し出し）。象牙と黒鉄の質感、盤からの反射、駒が落とす影まで実時間で描いています。ルールはキャスリング・アンパッサン・詰み・ステイルメイト・50手ルール・千日手まで判定します。
+  </p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.128.0/three.min.js"></script>
+<script>
+(function(){
+  'use strict';
+  /* ===================== ルール（2D版と同一） ===================== */
+  var W='w', BL='b', FILES='abcdefgh';
+  var STORE_KEY = 'kagemusha.chess.bots';
+  var GLYPH = {wK:'♔',wQ:'♕',wR:'♖',wB:'♗',wN:'♘',wP:'♙',bK:'♚',bQ:'♛',bR:'♜',bB:'♝',bN:'♞',bP:'♟'};
+  var VALUE = {P:1,N:3,B:3,R:5,Q:9,K:0};
+
+  function initialBoard(){
+    var back = ['R','N','B','Q','K','B','N','R'], b = [];
+    for(var r=0;r<8;r++) b.push(new Array(8).fill(null));
+    for(var c=0;c<8;c++){
+      b[0][c] = {k:back[c], s:BL}; b[1][c] = {k:'P', s:BL};
+      b[6][c] = {k:'P', s:W};      b[7][c] = {k:back[c], s:W};
+    }
+    return b;
+  }
+  function newState(){
+    return {board:initialBoard(), turn:W, castling:{wK:true,wQ:true,bK:true,bQ:true},
+      enPassant:null, halfmoveClock:0, fullmoveNumber:1};
+  }
+  function cloneState(st){
+    return {board: st.board.map(function(row){ return row.map(function(p){ return p ? {k:p.k,s:p.s} : null; }); }),
+      turn: st.turn, castling:{wK:st.castling.wK,wQ:st.castling.wQ,bK:st.castling.bK,bQ:st.castling.bQ},
+      enPassant: st.enPassant ? st.enPassant.slice() : null,
+      halfmoveClock: st.halfmoveClock, fullmoveNumber: st.fullmoveNumber};
+  }
+  function inside(r,c){ return r>=0&&r<8&&c>=0&&c<8; }
+  function other(s){ return s===W ? BL : W; }
+  function attacksFrom(board,r,c){
+    var p = board[r][c]; if(!p) return [];
+    var out=[], dir = p.s===W ? -1 : 1, i, j;
+    function step(dr,dc){ var rr=r+dr, cc=c+dc; if(inside(rr,cc)) out.push([rr,cc]); }
+    function slide(dr,dc){ var rr=r+dr, cc=c+dc; while(inside(rr,cc)){ out.push([rr,cc]); if(board[rr][cc]) break; rr+=dr; cc+=dc; } }
+    if(p.k==='P'){ step(dir,-1); step(dir,1); }
+    else if(p.k==='N'){ [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]].forEach(function(d){ step(d[0],d[1]); }); }
+    else if(p.k==='B'){ slide(-1,-1); slide(-1,1); slide(1,-1); slide(1,1); }
+    else if(p.k==='R'){ slide(-1,0); slide(1,0); slide(0,-1); slide(0,1); }
+    else if(p.k==='Q'){ slide(-1,-1); slide(-1,1); slide(1,-1); slide(1,1); slide(-1,0); slide(1,0); slide(0,-1); slide(0,1); }
+    else if(p.k==='K'){ for(i=-1;i<=1;i++) for(j=-1;j<=1;j++) if(i||j) step(i,j); }
+    return out;
+  }
+  function squareAttacked(board,r,c,by){
+    for(var rr=0;rr<8;rr++) for(var cc=0;cc<8;cc++){
+      var p = board[rr][cc]; if(!p || p.s!==by) continue;
+      var a = attacksFrom(board,rr,cc);
+      for(var i=0;i<a.length;i++) if(a[i][0]===r && a[i][1]===c) return true;
+    }
+    return false;
+  }
+  function findKing(board, side){
+    for(var r=0;r<8;r++) for(var c=0;c<8;c++){ var p=board[r][c]; if(p&&p.s===side&&p.k==='K') return [r,c]; }
+    return null;
+  }
+  function inCheck(board, side){ var k = findKing(board, side); return k ? squareAttacked(board,k[0],k[1],other(side)) : true; }
+
+  function pseudoMoves(st, side){
+    var board = st.board, out=[], dir = side===W?-1:1, startRow = side===W?6:1, lastRow = side===W?0:7;
+    function push(from,to,extra){ var m={from:from,to:to}; if(extra) Object.keys(extra).forEach(function(k){ m[k]=extra[k]; }); out.push(m); }
+    for(var r=0;r<8;r++) for(var c=0;c<8;c++){
+      var p = board[r][c]; if(!p || p.s!==side) continue;
+      if(p.k==='P'){
+        var one=r+dir;
+        if(inside(one,c) && !board[one][c]){
+          if(one===lastRow) ['Q','R','B','N'].forEach(function(pr){ push([r,c],[one,c],{promotion:pr}); });
+          else push([r,c],[one,c]);
+          var two=r+2*dir;
+          if(r===startRow && !board[two][c]) push([r,c],[two,c],{double:true});
+        }
+        [-1,1].forEach(function(dc){
+          var rr=r+dir, cc=c+dc; if(!inside(rr,cc)) return;
+          var t = board[rr][cc];
+          if(t && t.s!==side){
+            if(rr===lastRow) ['Q','R','B','N'].forEach(function(pr){ push([r,c],[rr,cc],{promotion:pr}); });
+            else push([r,c],[rr,cc]);
+          } else if(!t && st.enPassant && st.enPassant[0]===rr && st.enPassant[1]===cc) push([r,c],[rr,cc],{enPassant:true});
+        });
+      } else {
+        attacksFrom(board,r,c).forEach(function(t){
+          var target = board[t[0]][t[1]];
+          if(!target || target.s!==side) push([r,c],[t[0],t[1]]);
+        });
+      }
+    }
+    var row = side===W?7:0, ks = side===W?'wK':'bK', qs = side===W?'wQ':'bQ';
+    var king = board[row][4];
+    if(king && king.k==='K' && king.s===side && !inCheck(board, side)){
+      if(st.castling[ks] && !board[row][5] && !board[row][6] && board[row][7] && board[row][7].k==='R' && board[row][7].s===side &&
+         !squareAttacked(board,row,5,other(side)) && !squareAttacked(board,row,6,other(side))) push([row,4],[row,6],{castle:'K'});
+      if(st.castling[qs] && !board[row][3] && !board[row][2] && !board[row][1] && board[row][0] && board[row][0].k==='R' && board[row][0].s===side &&
+         !squareAttacked(board,row,3,other(side)) && !squareAttacked(board,row,2,other(side))) push([row,4],[row,2],{castle:'Q'});
+    }
+    return out;
+  }
+  function applyMove(st, m){
+    var board = st.board, p = board[m.from[0]][m.from[1]], captured = board[m.to[0]][m.to[1]], side = p.s;
+    st.halfmoveClock = (p.k==='P' || captured) ? 0 : st.halfmoveClock+1;
+    if(m.enPassant){
+      var capRow = side===W ? m.to[0]+1 : m.to[0]-1;
+      captured = board[capRow][m.to[1]];
+      board[capRow][m.to[1]] = null; st.halfmoveClock = 0;
+      m._epRow = capRow;
+    }
+    board[m.to[0]][m.to[1]] = {k: m.promotion || p.k, s:side};
+    board[m.from[0]][m.from[1]] = null;
+    if(m.castle){
+      var row = m.from[0];
+      if(m.castle==='K'){ board[row][5] = board[row][7]; board[row][7] = null; }
+      else { board[row][3] = board[row][0]; board[row][0] = null; }
+    }
+    st.enPassant = m.double ? [(m.from[0]+m.to[0])/2, m.to[1]] : null;
+    if(p.k==='K'){ if(side===W){ st.castling.wK = st.castling.wQ = false; } else { st.castling.bK = st.castling.bQ = false; } }
+    if(p.k==='R'){
+      if(side===W && m.from[0]===7){ if(m.from[1]===7) st.castling.wK=false; if(m.from[1]===0) st.castling.wQ=false; }
+      if(side===BL && m.from[0]===0){ if(m.from[1]===7) st.castling.bK=false; if(m.from[1]===0) st.castling.bQ=false; }
+    }
+    if(captured && captured.k==='R'){
+      if(m.to[0]===7&&m.to[1]===7) st.castling.wK=false;
+      if(m.to[0]===7&&m.to[1]===0) st.castling.wQ=false;
+      if(m.to[0]===0&&m.to[1]===7) st.castling.bK=false;
+      if(m.to[0]===0&&m.to[1]===0) st.castling.bQ=false;
+    }
+    if(side===BL) st.fullmoveNumber++;
+    st.turn = other(side);
+    return captured;
+  }
+  function legalMoves(st, side){
+    return pseudoMoves(st, side).filter(function(m){
+      var t = cloneState(st); applyMove(t, m); return !inCheck(t.board, side);
+    });
+  }
+  function epCapturable(st){
+    if(!st.enPassant) return false;
+    var side = st.turn, dir = side===W?-1:1, r = st.enPassant[0]-dir, c = st.enPassant[1];
+    return [-1,1].some(function(dc){
+      var cc = c+dc; if(!inside(r,cc)) return false;
+      var p = st.board[r][cc]; return p && p.s===side && p.k==='P';
+    });
+  }
+  function positionKey(st){
+    var rows = st.board.map(function(row){
+      return row.map(function(p){ return p ? (p.s==='w'?p.k:p.k.toLowerCase()) : '.'; }).join('');
+    }).join('/');
+    var cast = (st.castling.wK?'K':'')+(st.castling.wQ?'Q':'')+(st.castling.bK?'k':'')+(st.castling.bQ?'q':'');
+    var ep = epCapturable(st) ? (FILES[st.enPassant[1]] + (8-st.enPassant[0])) : '-';
+    return rows + ' ' + st.turn + ' ' + (cast||'-') + ' ' + ep;
+  }
+  function material(board){
+    var s = 0;
+    for(var r=0;r<8;r++) for(var c=0;c<8;c++){ var p=board[r][c]; if(p) s += (p.s===W ? VALUE[p.k] : -VALUE[p.k]); }
+    return s;
+  }
+  function sqName(r,c){ return FILES[c] + (8-r); }
+  function sameMove(a,b){
+    if(!a||!b||!a.from||!b.from) return false;
+    return a.from[0]===b.from[0]&&a.from[1]===b.from[1]&&a.to[0]===b.to[0]&&a.to[1]===b.to[1]&&(a.promotion||null)===(b.promotion||null);
+  }
+  function notation(st, m){
+    var p = st.board[m.from[0]][m.from[1]];
+    if(m.castle) return m.castle==='K' ? 'O-O' : 'O-O-O';
+    var capture = !!st.board[m.to[0]][m.to[1]] || m.enPassant;
+    var letter = p.k==='P' ? '' : p.k;
+    var from = p.k==='P' && capture ? FILES[m.from[1]] : '';
+    return letter + from + (capture?'x':'') + sqName(m.to[0],m.to[1]) + (m.promotion ? '='+m.promotion : '');
+  }
+
+  var SAMPLES = {
+    random:{name:'ランダム', meta:'合法手から無作為に選ぶ',
+      fn:function(state,player,moves){ return moves[Math.floor(Math.random()*moves.length)]; }},
+    capture:{name:'捕獲優先', meta:'取れる駒があれば価値の高いものを取る',
+      fn:function(state,player,moves){
+        var V={P:1,N:3,B:3,R:5,Q:9,K:100}, best=null, bestV=0;
+        moves.forEach(function(m){
+          var t = state.board[m.to[0]][m.to[1]], v = t ? (V[t.k]||0) : 0;
+          if(m.promotion==='Q') v += 8;
+          if(v > bestV){ bestV=v; best=m; }
+        });
+        return best || moves[Math.floor(Math.random()*moves.length)];
+      }},
+    material:{name:'駒得＋機動力', meta:'1手先の駒得と利きの数で選ぶ',
+      fn:function(state,player,moves){
+        var V={P:1,N:3,B:3,R:5,Q:9,K:0}, sign = player==='w'?1:-1, best=moves[0], bestScore=-Infinity;
+        moves.forEach(function(m){
+          var b = state.board.map(function(row){ return row.map(function(p){ return p?{k:p.k,s:p.s}:null; }); });
+          var pc = b[m.from[0]][m.from[1]];
+          b[m.to[0]][m.to[1]] = {k:m.promotion||pc.k, s:pc.s};
+          b[m.from[0]][m.from[1]] = null;
+          var score=0, mob=0;
+          for(var r=0;r<8;r++) for(var c=0;c<8;c++){
+            var q=b[r][c]; if(!q) continue;
+            score += (q.s==='w'?V[q.k]:-V[q.k]);
+            if(q.s===player) mob++;
+          }
+          score = score*sign*10 + mob*0.1;
+          var center = Math.abs(3.5-m.to[0]) + Math.abs(3.5-m.to[1]);
+          score += (7-center)*0.05;
+          if(score > bestScore){ bestScore=score; best=m; }
+        });
+        return best;
+      }}
+  };
+  var DEFAULT_CODE =
+    '// legalMoves の中から1つ選んで返す\n' +
+    '// 手: {from:[r,c], to:[r,c], promotion?:"Q"}\n' +
+    'function bot(state, player, legalMoves) {\n' +
+    '  const V = {P:1, N:3, B:3, R:5, Q:9, K:0};\n' +
+    '  let best = null, bestValue = -1;\n' +
+    '  for (const m of legalMoves) {\n' +
+    '    const target = state.board[m.to[0]][m.to[1]];\n' +
+    '    const value = (target ? V[target.k] : 0) + (m.promotion === "Q" ? 8 : 0);\n' +
+    '    if (value > bestValue) { bestValue = value; best = m; }\n' +
+    '  }\n' +
+    '  return best ?? legalMoves[Math.floor(Math.random() * legalMoves.length)];\n' +
+    '}\n';
+
+  function loadBots(){ try{ var raw = localStorage.getItem(STORE_KEY); return raw ? JSON.parse(raw) : []; }catch(e){ return []; } }
+  function saveBots(l){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(l)); return true; }catch(e){ return false; } }
+  var myBots = loadBots();
+  function compile(code){
+    var fn = (new Function('"use strict";' + code + '; return typeof bot === "function" ? bot : null;'))();
+    if(typeof fn !== 'function') throw new Error('bot という名前の関数が見つかりません');
+    return fn;
+  }
+  function publicState(st){
+    return {board: st.board.map(function(row){ return row.map(function(p){ return p?{k:p.k,s:p.s}:null; }); }),
+      castling:{wK:st.castling.wK,wQ:st.castling.wQ,bK:st.castling.bK,bQ:st.castling.bQ},
+      enPassant: st.enPassant ? st.enPassant.slice() : null,
+      halfmoveClock: st.halfmoveClock, fullmoveNumber: st.fullmoveNumber};
+  }
+  function runTests(code){
+    var fn = compile(code), a = newState(), b = newState();
+    applyMove(b, {from:[6,4], to:[4,4], double:true});
+    [{label:'初期局面（白）', st:a, side:W}, {label:'1.e4 の後（黒）', st:b, side:BL}].forEach(function(cs){
+      var moves = legalMoves(cs.st, cs.side);
+      var picked = fn(publicState(cs.st), cs.side, JSON.parse(JSON.stringify(moves)));
+      if(!picked) throw new Error(cs.label + '：手を返していません');
+      if(!moves.some(function(m){ return sameMove(m, picked); })) throw new Error(cs.label + '：合法手ではない手を返しました');
+    });
+    return 2;
+  }
+
+  /* ===================== 立体の盤と駒 ===================== */
+  var sceneEl = document.getElementById('scene');
+  var three = null;   // {renderer, scene, camera, pieces:{}, ...}
+  var TILE = 1;
+
+  function profileLathe(points, seg){
+    var pts = points.map(function(p){ return new THREE.Vector2(p[0], p[1]); });
+    return new THREE.LatheGeometry(pts, seg || 36);
+  }
+
+  function knightShape(){
+    // 横向きの馬の首（左が後ろ、右が口先）
+    var s = new THREE.Shape();
+    s.moveTo(-0.26, -0.40);
+    s.lineTo( 0.24, -0.40);
+    s.quadraticCurveTo( 0.30, -0.14,  0.26,  0.06);   // 胸元
+    s.quadraticCurveTo( 0.34,  0.16,  0.38,  0.30);   // 口先へ
+    s.quadraticCurveTo( 0.32,  0.36,  0.20,  0.34);   // 口の下の切れ込み
+    s.quadraticCurveTo( 0.14,  0.44,  0.12,  0.56);   // 鼻筋
+    s.lineTo( 0.17,  0.72);                            // 前の耳
+    s.lineTo( 0.05,  0.60);
+    s.lineTo( 0.00,  0.74);                            // 後ろの耳
+    s.lineTo(-0.09,  0.56);
+    s.quadraticCurveTo(-0.22,  0.46, -0.24,  0.24);   // たてがみ
+    s.quadraticCurveTo(-0.30,  0.00, -0.26, -0.40);
+    return s;
+  }
+
+  function buildPiece(kind, side){
+    var group = new THREE.Group();
+    // 駒ごとに素材を複製する（取られた駒を薄くするとき、他の駒に影響させないため）
+    var mat = (side === W ? three.matWhite : three.matBlack).clone();
+    var accent = (side === W ? three.matWhiteAccent : three.matBlackAccent).clone();
+    function add(geo, m, y, rot){
+      var mesh = new THREE.Mesh(geo, m || mat);
+      mesh.position.y = y || 0;
+      if(rot) mesh.rotation.y = rot;
+      mesh.castShadow = true; mesh.receiveShadow = false;
+      group.add(mesh);
+      return mesh;
+    }
+    // 共通の台座
+    var baseProfile = [[0,0],[0.30,0],[0.32,0.03],[0.30,0.07],[0.22,0.11],[0.18,0.16]];
+
+    if(kind === 'P'){
+      add(profileLathe(baseProfile.concat([[0.13,0.30],[0.12,0.38],[0.19,0.42],[0.17,0.46],[0.10,0.50],[0.09,0.54],[0,0.54]])), null, 0);
+      add(new THREE.SphereGeometry(0.15, 24, 18), null, 0.66);
+    } else if(kind === 'R'){
+      add(profileLathe(baseProfile.concat([[0.16,0.36],[0.17,0.62],[0.24,0.66],[0.25,0.80],[0.16,0.80],[0,0.80]])), null, 0);
+      for(var i=0;i<6;i++){
+        var a = i/6*Math.PI*2;
+        var m = add(new THREE.BoxGeometry(0.10,0.14,0.10), null, 0.86);
+        m.position.x = Math.cos(a)*0.19; m.position.z = Math.sin(a)*0.19; m.rotation.y = -a;
+      }
+    } else if(kind === 'B'){
+      add(profileLathe(baseProfile.concat([[0.14,0.34],[0.13,0.52],[0.22,0.56],[0.20,0.60],[0.12,0.64],[0.15,0.78],[0.10,0.90],[0,0.96]])), null, 0);
+      add(new THREE.SphereGeometry(0.075, 20, 14), accent, 1.02);
+    } else if(kind === 'Q'){
+      add(profileLathe(baseProfile.concat([[0.16,0.36],[0.14,0.58],[0.24,0.64],[0.21,0.70],[0.15,0.78],[0.24,0.96],[0.22,1.00],[0,1.00]])), null, 0);
+      var ring = add(new THREE.TorusGeometry(0.21, 0.035, 12, 32), accent, 1.02);
+      ring.rotation.x = Math.PI/2;
+      for(var j=0;j<8;j++){
+        var b = j/8*Math.PI*2;
+        var pt = add(new THREE.SphereGeometry(0.055, 16, 12), accent, 1.07);
+        pt.position.x = Math.cos(b)*0.21; pt.position.z = Math.sin(b)*0.21;
+      }
+      add(new THREE.SphereGeometry(0.075, 20, 14), accent, 1.14);
+    } else if(kind === 'K'){
+      add(profileLathe(baseProfile.concat([[0.17,0.38],[0.15,0.62],[0.25,0.68],[0.22,0.74],[0.16,0.84],[0.23,1.04],[0.21,1.08],[0,1.08]])), null, 0);
+      var band = add(new THREE.TorusGeometry(0.205, 0.032, 12, 32), accent, 1.10);
+      band.rotation.x = Math.PI/2;
+      add(new THREE.BoxGeometry(0.07,0.26,0.07), accent, 1.28);
+      add(new THREE.BoxGeometry(0.20,0.07,0.07), accent, 1.30);
+    } else if(kind === 'N'){
+      add(profileLathe([[0,0],[0.30,0],[0.32,0.03],[0.30,0.07],[0.22,0.11],[0.19,0.20],[0.18,0.26],[0,0.26]]), null, 0);
+      var geo = new THREE.ExtrudeGeometry(knightShape(), {depth:0.26, bevelEnabled:true, bevelSize:0.045, bevelThickness:0.04, bevelSegments:4, curveSegments:24});
+      geo.center();
+      var head = new THREE.Mesh(geo, mat);
+      head.castShadow = true;
+      head.position.y = 0.66;
+      head.rotation.y = side === W ? 0 : Math.PI;
+      group.add(head);
+    }
+    group.traverse(function(o){ if(o.isMesh) o.castShadow = true; });
+    group.userData.kind = kind; group.userData.side = side;
+    return group;
+  }
+
+  function squarePos(r,c){ return {x:(c-3.5)*TILE, z:(r-3.5)*TILE}; }
+
+  function initThree(){
+    if(typeof THREE === 'undefined' || !window.WebGLRenderingContext){
+      sceneEl.insertAdjacentHTML('beforeend',
+        '<div class="fallback">この環境では立体表示を使えません。<br>通信が届かないか、WebGL が無効になっています。</div>');
+      return false;
+    }
+    var renderer;
+    try{
+      renderer = new THREE.WebGLRenderer({antialias:true, alpha:false});
+    }catch(e){
+      sceneEl.insertAdjacentHTML('beforeend', '<div class="fallback">立体表示を初期化できませんでした。</div>');
+      return false;
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    sceneEl.appendChild(renderer.domElement);
+
+    var scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x11100E);
+    scene.fog = new THREE.Fog(0x11100E, 26, 48);
+
+    var camera = new THREE.PerspectiveCamera(34, 4/3, 0.1, 100);
+
+    // 光
+    scene.add(new THREE.HemisphereLight(0xD8E4FF, 0x241A12, 0.5));
+    var key = new THREE.DirectionalLight(0xFFEFD6, 1.15);
+    key.position.set(5.5, 9.5, 4.5);
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.camera.left = -7; key.shadow.camera.right = 7;
+    key.shadow.camera.top = 7; key.shadow.camera.bottom = -7;
+    key.shadow.camera.near = 1; key.shadow.camera.far = 24;
+    key.shadow.bias = -0.0008;
+    scene.add(key);
+    var rim = new THREE.DirectionalLight(0x9FB6FF, 0.35);
+    rim.position.set(-6, 5, -6);
+    scene.add(rim);
+    var fill = new THREE.PointLight(0xCBA23F, 0.35, 20);
+    fill.position.set(0, 4, 6);
+    scene.add(fill);
+
+    // 素材
+    var matWhite = new THREE.MeshStandardMaterial({color:0xF4E9D0, roughness:0.34, metalness:0.05});
+    var matWhiteAccent = new THREE.MeshStandardMaterial({color:0xCBA23F, roughness:0.28, metalness:0.75});
+    var matBlack = new THREE.MeshStandardMaterial({color:0x16151A, roughness:0.26, metalness:0.62});
+    var matBlackAccent = new THREE.MeshStandardMaterial({color:0x8E6B22, roughness:0.3, metalness:0.8});
+    var matLight = new THREE.MeshStandardMaterial({color:0xC9B994, roughness:0.5, metalness:0.05});
+    var matDark = new THREE.MeshStandardMaterial({color:0x4A3A31, roughness:0.58, metalness:0.05});
+    var matFrame = new THREE.MeshStandardMaterial({color:0x2A1E14, roughness:0.5, metalness:0.15});
+
+    [matWhite, matWhiteAccent, matBlack, matBlackAccent, matLight, matDark, matFrame]
+      .forEach(function(m){ m.color.convertSRGBToLinear(); });
+
+    var boardGroup = new THREE.Group();
+    scene.add(boardGroup);
+    var frame = new THREE.Mesh(new THREE.BoxGeometry(9.3, 0.34, 9.3), matFrame);
+    frame.position.y = -0.18; frame.receiveShadow = true;
+    boardGroup.add(frame);
+    for(var r=0;r<8;r++) for(var c=0;c<8;c++){
+      var tile = new THREE.Mesh(new THREE.BoxGeometry(TILE, 0.12, TILE), ((r+c)%2===0) ? matLight : matDark);
+      var pos = squarePos(r,c);
+      tile.position.set(pos.x, -0.06, pos.z);
+      tile.receiveShadow = true;
+      boardGroup.add(tile);
+    }
+
+    // マーカー
+    function marker(color, opacity){
+      var m = new THREE.Mesh(new THREE.PlaneGeometry(TILE*0.94, TILE*0.94),
+        new THREE.MeshBasicMaterial({color:color, transparent:true, opacity:opacity, depthWrite:false}));
+      m.rotation.x = -Math.PI/2; m.position.y = 0.002; m.visible = false;
+      scene.add(m);
+      return m;
+    }
+    var markFrom = marker(0xCBA23F, 0.28), markTo = marker(0xCBA23F, 0.5), markCheck = marker(0xC2392B, 0.55);
+
+    var pieceGroup = new THREE.Group();
+    scene.add(pieceGroup);
+
+    three = {renderer:renderer, scene:scene, camera:camera, pieceGroup:pieceGroup,
+      matWhite:matWhite, matBlack:matBlack, matWhiteAccent:matWhiteAccent, matBlackAccent:matBlackAccent,
+      markFrom:markFrom, markTo:markTo, markCheck:markCheck, meshes:{}, tweens:[]};
+
+    // カメラ操作
+    var orbit = {theta: 0, phi: 0.88, radius: 13.0, target: new THREE.Vector3(0,0.3,0)};
+    function applyCamera(){
+      orbit.phi = Math.max(0.16, Math.min(1.45, orbit.phi));
+      orbit.radius = Math.max(7, Math.min(20, orbit.radius));
+      camera.position.set(
+        orbit.target.x + orbit.radius * Math.sin(orbit.phi) * Math.sin(orbit.theta),
+        orbit.target.y + orbit.radius * Math.cos(orbit.phi),
+        orbit.target.z + orbit.radius * Math.sin(orbit.phi) * Math.cos(orbit.theta)
+      );
+      camera.lookAt(orbit.target);
+    }
+    three.orbit = orbit; three.applyCamera = applyCamera;
+    applyCamera();
+
+    var dragging = false, lastX = 0, lastY = 0;
+    renderer.domElement.addEventListener('pointerdown', function(e){
+      dragging = true; lastX = e.clientX; lastY = e.clientY;
+      renderer.domElement.setPointerCapture(e.pointerId);
+    });
+    renderer.domElement.addEventListener('pointermove', function(e){
+      if(!dragging) return;
+      orbit.theta -= (e.clientX - lastX) * 0.008;
+      orbit.phi   -= (e.clientY - lastY) * 0.006;
+      lastX = e.clientX; lastY = e.clientY;
+      applyCamera();
+    });
+    ['pointerup','pointercancel','pointerleave'].forEach(function(ev){
+      renderer.domElement.addEventListener(ev, function(){ dragging = false; });
+    });
+    renderer.domElement.addEventListener('wheel', function(e){
+      e.preventDefault();
+      orbit.radius += e.deltaY * 0.01;
+      applyCamera();
+    }, {passive:false});
+
+    function resize(){
+      var w = sceneEl.clientWidth, h = sceneEl.clientHeight;
+      if(!w || !h) return;
+      renderer.setSize(w, h, false);
+      camera.aspect = w/h; camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    (function loop(){
+      requestAnimationFrame(loop);
+      var now = performance.now();
+      three.tweens = three.tweens.filter(function(t){
+        var k = Math.min(1, (now - t.start) / t.dur);
+        var e = k<0.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2,3)/2;
+        t.obj.position.x = t.from.x + (t.to.x - t.from.x) * e;
+        t.obj.position.z = t.from.z + (t.to.z - t.from.z) * e;
+        t.obj.position.y = t.from.y + (t.to.y - t.from.y) * e + Math.sin(k*Math.PI) * (t.lift || 0);
+        if(t.fade){
+          t.obj.scale.setScalar(1 - e*0.85);
+          t.obj.traverse(function(o){ if(o.isMesh && o.material){ o.material.transparent = true; o.material.opacity = 1-e; } });
+        }
+        if(k >= 1){ if(t.done) t.done(); return false; }
+        return true;
+      });
+      renderer.render(scene, camera);
+    })();
+
+    return true;
+  }
+
+  function clearPieces(){
+    if(!three) return;
+    Object.keys(three.meshes).forEach(function(id){
+      three.pieceGroup.remove(three.meshes[id]);
+    });
+    three.meshes = {};
+    three.tweens = [];
+  }
+  function syncPieces(){
+    if(!three) return;
+    clearPieces();
+    for(var r=0;r<8;r++) for(var c=0;c<8;c++){
+      var p = state.board[r][c];
+      if(!p) continue;
+      var g = buildPiece(p.k, p.s);
+      var pos = squarePos(r,c);
+      g.position.set(pos.x, 0, pos.z);
+      three.pieceGroup.add(g);
+      three.meshes[r+'_'+c] = g;
+    }
+  }
+  function animateMove(m, capturedAt){
+    if(!three) return;
+    var fromKey = m.from[0]+'_'+m.from[1], toKey = m.to[0]+'_'+m.to[1];
+    var mover = three.meshes[fromKey];
+    var victimKey = capturedAt ? (capturedAt[0]+'_'+capturedAt[1]) : toKey;
+    var victim = three.meshes[victimKey];
+    if(victim && victim !== mover){
+      delete three.meshes[victimKey];
+      three.tweens.push({obj:victim, from:victim.position.clone(), to:victim.position.clone(),
+        start:performance.now(), dur:320, fade:true, done:function(){ three.pieceGroup.remove(victim); }});
+    }
+    if(mover){
+      delete three.meshes[fromKey];
+      var target = squarePos(m.to[0], m.to[1]);
+      three.tweens.push({obj:mover, from:mover.position.clone(),
+        to:new THREE.Vector3(target.x, 0, target.z), start:performance.now(), dur:360,
+        lift: (mover.userData.kind === 'N') ? 0.9 : 0.35});
+      three.meshes[toKey] = mover;
+      if(m.promotion){
+        var side = mover.userData.side;
+        setTimeout(function(){
+          three.pieceGroup.remove(mover);
+          var g = buildPiece(m.promotion, side);
+          g.position.set(target.x, 0, target.z);
+          three.pieceGroup.add(g);
+          three.meshes[toKey] = g;
+        }, 380);
+      }
+    }
+    if(m.castle){
+      var row = m.from[0];
+      var rookFrom = (m.castle === 'K') ? row+'_7' : row+'_0';
+      var rookToC = (m.castle === 'K') ? 5 : 3;
+      var rook = three.meshes[rookFrom];
+      if(rook){
+        delete three.meshes[rookFrom];
+        var rp = squarePos(row, rookToC);
+        three.tweens.push({obj:rook, from:rook.position.clone(), to:new THREE.Vector3(rp.x,0,rp.z),
+          start:performance.now(), dur:420, lift:0.25});
+        three.meshes[row+'_'+rookToC] = rook;
+      }
+    }
+    var f = squarePos(m.from[0], m.from[1]), t = squarePos(m.to[0], m.to[1]);
+    three.markFrom.position.set(f.x, 0.002, f.z); three.markFrom.visible = true;
+    three.markTo.position.set(t.x, 0.003, t.z); three.markTo.visible = true;
+  }
+  function updateCheckMark(){
+    if(!three) return;
+    three.markCheck.visible = false;
+    if(over) return;
+    if(inCheck(state.board, state.turn)){
+      var k = findKing(state.board, state.turn);
+      if(k){ var p = squarePos(k[0],k[1]); three.markCheck.position.set(p.x, 0.004, p.z); three.markCheck.visible = true; }
+    }
+  }
+
+  /* ===================== 画面まわり ===================== */
+  var state, taken = {w:[], b:[]}, times = [], over = false, timer = null, history = {}, plyCount = 0;
+  var players = {};
+
+  function renderPanels(){
+    var score = 0;
+    [['w','trayW'],['b','trayB']].forEach(function(pair){
+      var box = document.getElementById(pair[1]).querySelector('.taken');
+      box.innerHTML = '';
+      var list = taken[pair[0]];
+      if(!list.length){ box.innerHTML = '<span class="none">なし</span>'; }
+      list.forEach(function(t){
+        var s = document.createElement('span'); s.className = t.s; s.textContent = GLYPH[t.s + t.k]; box.appendChild(s);
+      });
+    });
+    taken.w.forEach(function(t){ score += VALUE[t.k]; });
+    taken.b.forEach(function(t){ score -= VALUE[t.k]; });
+    document.getElementById('trayW').querySelector('.adv').textContent = score > 0 ? '＋'+score : '';
+    document.getElementById('trayB').querySelector('.adv').textContent = score < 0 ? '＋'+(-score) : '';
+    document.getElementById('evalfill').style.width = Math.max(8, Math.min(92, 50 + score*4)) + '%';
+    document.getElementById('turnLabel').textContent = over ? '対局終了' : (state.turn===W ? '白番' : '黒番');
+    document.getElementById('ply').textContent = plyCount;
+    document.getElementById('fifty').textContent = state.halfmoveClock;
+    document.getElementById('rep').textContent = history[positionKey(state)] || 1;
+    document.getElementById('avg').textContent = times.length
+      ? Math.round(times.reduce(function(a,b){return a+b;},0)/times.length) + 'ms' : '—';
+    updateCheckMark();
+  }
+  function log(text, side, ms){
+    var kifu = document.getElementById('kifu');
+    var cur = kifu.querySelector('.cur'); if(cur) cur.classList.remove('cur');
+    var li = document.createElement('li');
+    li.className = 'cur' + (side===BL ? ' bl' : '');
+    var num = (Math.floor((plyCount-1)/2)+1) + (side===W ? '.' : '…');
+    li.innerHTML = '<span class="n">'+plyCount+'</span><span class="mv">'+num+' '+text+
+      '</span><span class="ms">'+(ms==null?'':ms+'ms')+'</span>';
+    kifu.appendChild(li); kifu.scrollTop = kifu.scrollHeight;
+  }
+  function showMsg(id, text, cls){
+    var el = document.getElementById(id);
+    el.hidden = !text; el.textContent = text || '';
+    el.className = 'msg' + (cls ? ' '+cls : '');
+  }
+  function newGame(){
+    stop();
+    state = newState(); taken = {w:[],b:[]}; times = []; plyCount = 0; over = false;
+    history = {}; history[positionKey(state)] = 1;
+    if(three){ three.markFrom.visible = three.markTo.visible = three.markCheck.visible = false; }
+    syncPieces();
+    document.getElementById('kifu').innerHTML =
+      '<li class="cur"><span class="n">—</span><span class="mv">開始局面</span><span class="ms">白番</span></li>';
+    showMsg('gameMsg','');
+    document.getElementById('play').textContent = '対局開始';
+    renderPanels();
+  }
+  function finish(text){ over = true; stop(); showMsg('gameMsg', text, 'ok'); renderPanels(); }
+
+  function oneStep(){
+    if(over) return false;
+    var side = state.turn, moves = legalMoves(state, side);
+    if(!moves.length){
+      finish(inCheck(state.board, side) ? 'チェックメイト ― '+(side===W?'黒':'白')+'の勝ち（'+plyCount+'手）' : 'ステイルメイト ― 引き分け');
+      return false;
+    }
+    if(state.halfmoveClock >= 100){ finish('50手ルール ― 引き分け'); return false; }
+    if(plyCount >= 300){
+      var mm = material(state.board);
+      finish('300手に到達 ― ' + (mm===0?'引き分け':(mm>0?'白優勢につき白の勝ち':'黒優勢につき黒の勝ち')) + '（駒得 '+(mm>0?'+':'')+mm+'）');
+      return false;
+    }
+    var p = players[side];
+    var t0 = performance.now(), picked = null, failed = null;
+    try{ picked = p.fn(publicState(state), side, JSON.parse(JSON.stringify(moves))); }
+    catch(e){ failed = String(e && e.message || e); }
+    var ms = Math.max(1, Math.round(performance.now() - t0));
+
+    var chosen = null;
+    for(var i=0;i<moves.length;i++) if(sameMove(moves[i], picked)){ chosen = moves[i]; break; }
+    var fellBack = false;
+    if(!chosen){ chosen = moves[Math.floor(Math.random()*moves.length)]; fellBack = true; }
+
+    var text = notation(state, chosen);
+    var capturedAt = null;
+    if(chosen.enPassant) capturedAt = [side===W ? chosen.to[0]+1 : chosen.to[0]-1, chosen.to[1]];
+    else if(state.board[chosen.to[0]][chosen.to[1]]) capturedAt = [chosen.to[0], chosen.to[1]];
+
+    var captured = applyMove(state, chosen);
+    if(captured) taken[side].push({k:captured.k, s:captured.s});
+    plyCount++; times.push(ms);
+    animateMove(chosen, capturedAt);
+
+    var key = positionKey(state);
+    history[key] = (history[key] || 0) + 1;
+    var opponentMoves = legalMoves(state, state.turn);
+    var check = inCheck(state.board, state.turn);
+    if(check && !opponentMoves.length) text += '#';
+    else if(check) text += '+';
+
+    log(text + (fellBack ? ' ※無効手→ランダム' : ''), side, ms);
+    if(failed) showMsg('gameMsg', (side===W?'白':'黒')+'のコードでエラー：'+failed+'（ランダムな合法手で続行）', 'ng');
+    renderPanels();
+
+    if(history[key] >= 3){ finish('同一局面が3回 ― 引き分け（千日手）'); return false; }
+    if(!opponentMoves.length){
+      finish(check ? 'チェックメイト ― '+(side===W?'白':'黒')+'の勝ち（'+plyCount+'手）' : 'ステイルメイト ― 引き分け');
+      return false;
+    }
+    return true;
+  }
+
+  var playBtn = document.getElementById('play');
+  function stop(){ if(timer){ clearInterval(timer); timer=null; } if(playBtn) playBtn.textContent = over ? '対局開始' : '再開'; }
+  function play(){
+    if(timer){ stop(); return; }
+    if(over) newGame();
+    syncPlayers();
+    var speed = parseInt(document.getElementById('speed').value, 10);
+    playBtn.textContent = '一時停止';
+    if(speed === 0){
+      var guard = 0;
+      while(!over && guard++ < 400){ if(!oneStep()) break; }
+      syncPieces(); stop(); return;
+    }
+    timer = setInterval(function(){ if(!oneStep()) stop(); }, speed);
+  }
+
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function optionsHtml(){
+    var html = '<optgroup label="サンプル戦略">';
+    Object.keys(SAMPLES).forEach(function(k){ html += '<option value="s:'+k+'">'+SAMPLES[k].name+'</option>'; });
+    html += '</optgroup>';
+    if(myBots.length){
+      html += '<optgroup label="マイ影武者">';
+      myBots.forEach(function(b,i){ html += '<option value="m:'+i+'">'+escapeHtml(b.name)+'</option>'; });
+      html += '</optgroup>';
+    }
+    return html;
+  }
+  var pickedSel = {selW:'s:material', selB:'s:capture'};
+  function refreshSelects(){
+    ['selW','selB'].forEach(function(id){
+      var sel = document.getElementById(id);
+      sel.innerHTML = optionsHtml();
+      if(sel.querySelector('option[value="'+pickedSel[id]+'"]')) sel.value = pickedSel[id];
+      else { sel.selectedIndex = 0; pickedSel[id] = sel.value; }
+    });
+    syncPlayers();
+  }
+  function resolve(value){
+    var kind = value.slice(0,1), key = value.slice(2);
+    if(kind==='s'){ var s = SAMPLES[key]; return {name:s.name, meta:s.meta, fn:s.fn}; }
+    var bot = myBots[parseInt(key,10)];
+    if(!bot) return {name:'ランダム', meta:'（見つからないため代替）', fn:SAMPLES.random.fn};
+    var fn; try{ fn = compile(bot.code); }catch(e){ fn = SAMPLES.random.fn; }
+    return {name:bot.name, meta:'マイ影武者', fn:fn};
+  }
+  function syncPlayers(){
+    players[W] = resolve(document.getElementById('selW').value || 's:material');
+    players[BL] = resolve(document.getElementById('selB').value || 's:capture');
+    document.getElementById('whiteName').textContent = '白 ／ ' + players[W].name;
+    document.getElementById('whiteMeta').textContent = players[W].meta;
+    document.getElementById('blackName').textContent = players[BL].name + ' ／ 黒';
+    document.getElementById('blackMeta').textContent = players[BL].meta;
+  }
+  function renderMine(){
+    var ul = document.getElementById('mineList'); ul.innerHTML = '';
+    if(!myBots.length){ ul.innerHTML = '<li><span class="nm" style="color:#6F6455">まだ保存された影武者はありません</span></li>'; return; }
+    myBots.forEach(function(bot,i){
+      var li = document.createElement('li');
+      li.innerHTML = '<span class="nm">'+escapeHtml(bot.name)+'</span><span class="acts">' +
+        '<button class="sm" data-edit="'+i+'">編集</button><button class="sm" data-del="'+i+'">削除</button></span>';
+      ul.appendChild(li);
+    });
+  }
+  document.getElementById('mineList').addEventListener('click', function(e){
+    var t = e.target;
+    if(t.dataset.edit != null){
+      var bot = myBots[+t.dataset.edit];
+      document.getElementById('botName').value = bot.name;
+      document.getElementById('code').value = bot.code;
+      switchTab('tabEdit'); showMsg('testMsg','「'+bot.name+'」を読み込みました。','');
+    }
+    if(t.dataset.del != null){
+      var i = +t.dataset.del, nm = myBots[i].name;
+      myBots.splice(i,1); saveBots(myBots); renderMine(); refreshSelects();
+      showMsg('mineMsg','「'+nm+'」を削除しました。','');
+    }
+  });
+  document.getElementById('btnTest').addEventListener('click', function(){
+    try{ var n = runTests(document.getElementById('code').value);
+      showMsg('testMsg','自動テスト合格（'+n+'局面で合法手を返しました）','ok');
+    }catch(e){ showMsg('testMsg','不合格：'+(e && e.message || e),'ng'); }
+  });
+  document.getElementById('btnSave').addEventListener('click', function(){
+    var name = document.getElementById('botName').value.trim(), code = document.getElementById('code').value;
+    if(!name){ showMsg('testMsg','名前を入れてください。','ng'); return; }
+    try{ runTests(code); }catch(e){ showMsg('testMsg','保存しませんでした ― '+(e && e.message || e),'ng'); return; }
+    var idx = -1; myBots.forEach(function(b,i){ if(b.name===name) idx=i; });
+    var rec = {name:name, code:code, updatedAt:new Date().toISOString()};
+    if(idx>=0) myBots[idx]=rec; else myBots.push(rec);
+    var stored = saveBots(myBots); renderMine(); refreshSelects();
+    showMsg('testMsg', stored ? '「'+name+'」を保存しました。' :
+      '「'+name+'」を使えるようにしました（このブラウザには保存できない設定のため、閉じると消えます）。', stored?'ok':'ng');
+  });
+  document.getElementById('btnExport').addEventListener('click', function(){
+    var json = JSON.stringify({game:'chess', bots:myBots}, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(json).then(function(){ showMsg('mineMsg','コピーしました。','ok'); },
+        function(){ showMsg('mineMsg', json, ''); });
+    } else showMsg('mineMsg', json, '');
+  });
+  document.getElementById('btnImport').addEventListener('click', function(){ document.getElementById('fileImport').click(); });
+  document.getElementById('fileImport').addEventListener('change', function(e){
+    var f = e.target.files && e.target.files[0]; if(!f) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var data = JSON.parse(String(reader.result));
+        var list = Array.isArray(data) ? data : data.bots;
+        if(!Array.isArray(list)) throw new Error('bots の配列が見つかりません');
+        list.forEach(function(b){ if(b && b.name && typeof b.code === 'string') myBots.push({name:b.name, code:b.code}); });
+        saveBots(myBots); renderMine(); refreshSelects();
+        showMsg('mineMsg', list.length+'体を読み込みました。','ok');
+      }catch(err){ showMsg('mineMsg','読み込めませんでした：'+(err && err.message || err),'ng'); }
+    };
+    reader.readAsText(f); e.target.value='';
+  });
+
+  function api(path){ return document.getElementById('apiBase').value.replace(/\/+$/,'') + path; }
+  document.getElementById('btnRegister').addEventListener('click', function(){
+    var name = document.getElementById('botName').value.trim() || '名もなき影武者';
+    showMsg('serverMsg','登録しています…','');
+    fetch(api('/api/kagemusha'), {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({game:'chess', name:name, code:document.getElementById('code').value})})
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, body:j}; }); })
+      .then(function(res){
+        if(!res.ok) throw new Error(res.body && (res.body.error||res.body.message) || '登録できませんでした');
+        window.__myId = res.body.id || (res.body.kagemusha && res.body.kagemusha.id);
+        showMsg('serverMsg','登録しました（ID: '+window.__myId+'）。','ok');
+      })
+      .catch(function(e){ showMsg('serverMsg','登録できませんでした：'+(e && e.message || e),'ng'); });
+  });
+  document.getElementById('btnRank').addEventListener('click', function(){
+    showMsg('serverMsg','取得しています…','');
+    fetch(api('/api/rankings/chess')).then(function(r){ return r.json(); })
+      .then(function(data){
+        var list = Array.isArray(data) ? data : (data.rankings || data.items || []);
+        var ul = document.getElementById('rankList'); ul.innerHTML = '';
+        if(!list.length) ul.innerHTML = '<li><span class="nm" style="color:#6F6455">まだ誰もいません</span></li>';
+        list.slice(0,20).forEach(function(k,i){
+          var li = document.createElement('li');
+          li.innerHTML = '<span class="nm">'+(i+1)+'. '+escapeHtml(k.name||k.id)+'</span>' +
+            '<span class="acts"><span class="pt">'+Math.round(k.rating||1500)+'</span>' +
+            '<button class="sm" data-challenge="'+escapeHtml(k.id)+'">挑戦</button></span>';
+          ul.appendChild(li);
+        });
+        showMsg('serverMsg','');
+      })
+      .catch(function(e){ showMsg('serverMsg','取得できませんでした：'+(e && e.message || e),'ng'); });
+  });
+  document.getElementById('rankList').addEventListener('click', function(e){
+    var id = e.target.dataset && e.target.dataset.challenge;
+    if(!id) return;
+    if(!window.__myId){ showMsg('serverMsg','先に「この影武者を登録」を押してください。','ng'); return; }
+    showMsg('serverMsg','対戦をサーバーで計算しています…','');
+    fetch(api('/api/challenges'), {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({game:'chess', challengerId: window.__myId, defenderId: id})})
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, body:j}; }); })
+      .then(function(res){
+        if(!res.ok) throw new Error(res.body && (res.body.error||res.body.message) || '挑戦できませんでした');
+        var match = res.body.match || res.body, games = match.games || [];
+        var hist = (games[0] && (games[0].moveHistory || games[0].moves)) || match.moveHistory;
+        showMsg('serverMsg','対戦結果を受け取りました。1局目を盤の上で再生します。','ok');
+        if(hist && hist.length) replay(hist);
+      })
+      .catch(function(e){ showMsg('serverMsg','挑戦できませんでした：'+(e && e.message || e),'ng'); });
+  });
+  function replay(hist){
+    newGame();
+    var i = 0;
+    var iv = setInterval(function(){
+      if(i >= hist.length || over){ clearInterval(iv); return; }
+      var h = hist[i++], moves = legalMoves(state, state.turn), m = null;
+      for(var j=0;j<moves.length;j++) if(sameMove(moves[j], h)){ m = moves[j]; break; }
+      if(!m){ clearInterval(iv); showMsg('gameMsg','再生できない手がありました','ng'); return; }
+      var side = state.turn, text = notation(state, m);
+      var capturedAt = m.enPassant ? [side===W ? m.to[0]+1 : m.to[0]-1, m.to[1]]
+                      : (state.board[m.to[0]][m.to[1]] ? [m.to[0], m.to[1]] : null);
+      var cap = applyMove(state, m);
+      if(cap) taken[side].push({k:cap.k, s:cap.s});
+      plyCount++;
+      animateMove(m, capturedAt);
+      log(text, side, null); renderPanels();
+    }, 620);
+  }
+
+  function switchTab(id){
+    [['tabEdit','paneEdit'],['tabMine','paneMine'],['tabServer','paneServer']].forEach(function(p){
+      var on = p[0]===id;
+      document.getElementById(p[0]).setAttribute('aria-selected', on?'true':'false');
+      document.getElementById(p[1]).hidden = !on;
+    });
+  }
+  ['tabEdit','tabMine','tabServer'].forEach(function(id){
+    document.getElementById(id).addEventListener('click', function(){ switchTab(id); });
+  });
+
+  var ok3d = initThree();
+  window.__chess3d = {newState:newState, cloneState:cloneState, legalMoves:legalMoves, applyMove:applyMove, ready:ok3d};
+
+  document.getElementById('code').value = DEFAULT_CODE;
+  renderMine(); newGame(); refreshSelects();
+
+  playBtn.addEventListener('click', play);
+  document.getElementById('step').addEventListener('click', function(){ stop(); syncPlayers(); oneStep(); });
+  document.getElementById('reset').addEventListener('click', newGame);
+  document.getElementById('viewTop').addEventListener('click', function(){
+    if(!three) return;
+    var top = three.orbit.phi < 0.4;
+    three.orbit.phi = top ? 0.92 : 0.18;
+    three.orbit.theta = 0;
+    three.applyCamera();
+    this.textContent = top ? '真上から' : '斜めから';
+  });
+  ['selW','selB'].forEach(function(id){
+    document.getElementById(id).addEventListener('change', function(){ pickedSel[id] = this.value; syncPlayers(); });
+  });
+})();
+</script>
+</body>
+</html>
