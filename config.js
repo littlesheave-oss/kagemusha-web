@@ -106,6 +106,7 @@ window.KAGEMUSHA_API = "https://kagemusha-api.onrender.com";
     ".kg-card .kg-act:disabled{opacity:.5;cursor:default}",
     ".kg-modal .kg-close{margin-top:16px;font:inherit;font-size:13px;color:#CBA23F;background:none;border:none;cursor:pointer}",
     ".kg-modal .kg-note{font-size:11px;opacity:.6;margin-top:12px;line-height:1.6}",
+    ".kg-modal .kg-law{color:#CBA23F;text-decoration:underline;display:inline-block;margin-top:4px}",
     "@media(max-width:560px){.kg-auth{top:auto;bottom:10px;right:10px}}"
   ].join("");
 
@@ -235,7 +236,14 @@ window.KAGEMUSHA_API = "https://kagemusha-api.onrender.com";
     if (!data.billingEnabled) {
       boxEl.appendChild(el("p", "kg-note", "有料プランのお支払いはまだ準備中です。準備ができ次第、この画面から申し込めるようになります。"));
     }
-    boxEl.appendChild(el("p", "kg-note", "支払いはクレジットカード（Stripe）。カード番号はこのサイトを通らず、Stripeの画面で直接入力します。いつでも解約でき、解約後は無料プランに戻ります。"));
+    var note = el("p", "kg-note", "支払いはクレジットカード（Stripe）。カード番号はこのサイトを通らず、Stripeの画面で直接入力します。いつでも解約でき、解約後は無料プランに戻ります。");
+    note.appendChild(document.createElement("br"));
+    var law = el("a", "kg-law", "特定商取引法に基づく表記");
+    law.href = "./tokushoho.html";
+    law.target = "_blank";
+    law.rel = "noopener";
+    note.appendChild(law);
+    boxEl.appendChild(note);
 
     var close = el("button", "kg-close", "閉じる");
     close.addEventListener("click", function () { back.remove(); });
