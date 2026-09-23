@@ -1,0 +1,947 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>影武者 将棋</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+  :root{
+    color-scheme: dark;
+    --sumi:#13100E; --sumi-2:#1C1815; --sumi-3:#251F1A; --line:#3A312A;
+    --washi:#EEE4D2; --washi-dim:#A99C87;
+    --kaya:#EFCE94; --kaya-d:#D3A661; --grid:#6E4C22;
+    --koma:#F5E1B0; --koma-edge:#B98D4C; --koma-ink:#2A1C10;
+    --kin:#CBA23F; --shu:#C2392B; --ok:#7FA96B;
+    --mincho:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+    --gothic:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+    --sq: clamp(28px, 7.6vw, 50px);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--sumi); color:var(--washi); font-family:var(--gothic); font-size:14px; line-height:1.7;
+    background-image:
+      radial-gradient(120% 80% at 50% -10%, rgba(203,162,63,.10), transparent 60%),
+      repeating-linear-gradient(115deg, rgba(255,255,255,.012) 0 2px, transparent 2px 7px);
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  img{max-width:100%}
+  [hidden]{display:none !important}
+  .wrap{max-width:1060px; margin:0 auto; padding-inline:16px; padding-block:clamp(18px,4vw,36px)}
+
+  .masthead{display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap;
+    border-bottom:1px solid var(--line); padding-bottom:14px}
+  .brand{display:flex; align-items:baseline; gap:12px}
+  .brand h1{font-family:var(--mincho); font-weight:700; font-size:clamp(24px,6vw,36px); margin:0; letter-spacing:.14em}
+  .brand .romaji{font-size:11px; letter-spacing:.34em; color:var(--washi-dim); text-transform:uppercase}
+  .matchno{font-size:11px; letter-spacing:.2em; color:var(--washi-dim); font-variant-numeric:tabular-nums}
+
+  .card-row{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:12px; margin-block:18px}
+  @media (max-width:640px){ .card-row{grid-template-columns:1fr} .player.g{flex-direction:row; text-align:left} }
+  .player{display:flex; align-items:center; gap:12px; min-width:0}
+  .player.g{flex-direction:row-reverse; text-align:right}
+  .seal{width:38px; height:38px; flex:none; display:grid; place-items:center; border-radius:3px; font-family:var(--mincho); font-size:18px}
+  .seal.s{background:linear-gradient(160deg,#1F1A16,#0E0B09); border:1px solid var(--kin); color:var(--kin)}
+  .seal.g{background:linear-gradient(160deg,#8E2A20,#5F1A14); border:1px solid #D9705F; color:#F6EEDC}
+  .pname{font-family:var(--mincho); font-size:16px; letter-spacing:.06em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .meta{font-size:11px; color:var(--washi-dim); letter-spacing:.06em}
+  .versus{font-family:var(--mincho); font-size:13px; color:var(--washi-dim); letter-spacing:.3em; text-align:center}
+
+  .evaltrack{height:6px; border-radius:99px; background:#7A2A22; overflow:hidden; border:1px solid var(--line)}
+  .evalfill{height:100%; width:50%; background:linear-gradient(90deg,#D8B35A,#9A7A2C); transition:width .5s cubic-bezier(.22,.9,.25,1)}
+  .evalrow{display:flex; justify-content:space-between; font-size:11px; color:var(--washi-dim); letter-spacing:.08em;
+    margin:6px 0 20px; font-variant-numeric:tabular-nums}
+
+  .stage{display:grid; grid-template-columns:minmax(0,1fr) 280px; gap:24px; align-items:start}
+  @media (max-width:880px){ .stage{grid-template-columns:1fr} }
+  .boardcol{display:flex; flex-direction:column; align-items:center; gap:10px}
+
+  .hand{width:100%; max-width:calc(var(--sq)*9 + 20px); display:flex; align-items:center; gap:10px;
+    background:var(--sumi-2); border:1px solid var(--line); border-radius:4px; padding:8px 10px}
+  .hand .label{font-family:var(--mincho); font-size:12px; letter-spacing:.2em; color:var(--washi-dim); flex:none}
+  .hand .pieces{display:flex; gap:6px; flex-wrap:wrap; min-height:26px; align-items:center}
+  .mini{font-family:var(--mincho); font-size:15px; color:var(--koma-ink);
+    background:linear-gradient(170deg,var(--koma),#E2C68E); border:1px solid var(--koma-edge);
+    border-radius:2px; padding:1px 8px 2px; display:inline-flex; gap:3px; align-items:baseline;
+    clip-path:polygon(50% 0,88% 12%,100% 100%,0 100%,12% 12%)}
+  .mini sub{font-size:9px; font-family:var(--gothic)}
+  .hand .none{font-size:12px; color:#6F6455}
+
+  .board{position:relative; width:calc(var(--sq)*9); height:calc(var(--sq)*9); flex:none;
+    background:repeating-linear-gradient(92deg, rgba(120,80,30,.07) 0 3px, transparent 3px 11px),
+      linear-gradient(168deg, var(--kaya), var(--kaya-d));
+    box-shadow:0 18px 34px rgba(0,0,0,.55), inset 0 0 0 1px rgba(80,50,15,.4);
+    border:3px solid #4A3318; border-radius:2px}
+  .board .grid{position:absolute; inset:0; pointer-events:none}
+  .board .grid i{position:absolute; background:rgba(74,51,24,.5)}
+  .board .grid i.v{top:0; bottom:0; width:1px}
+  .board .grid i.h{left:0; right:0; height:1px}
+  .board .star{position:absolute; width:6px; height:6px; margin:-3px 0 0 -3px; border-radius:50%; background:#4A3318}
+
+  .piece{position:absolute; left:0; top:0; width:var(--sq); height:var(--sq); display:grid; place-items:center;
+    transition:transform .3s cubic-bezier(.3,.85,.25,1); will-change:transform}
+  .piece .face{width:84%; height:88%; display:grid; place-items:center;
+    font-family:var(--mincho); font-weight:700; color:var(--koma-ink);
+    font-size:calc(var(--sq)*.54); line-height:1;
+    background:linear-gradient(168deg,#F8E8C0,#E6C994 70%,#D7B274);
+    border:1px solid var(--koma-edge);
+    clip-path:polygon(50% 0,86% 13%,100% 100%,0 100%,14% 13%);
+    box-shadow:0 2px 3px rgba(40,22,5,.4)}
+  .piece.g .face{transform:rotate(180deg)}
+  .piece.pro .face{color:var(--shu)}
+  .mark{position:absolute; left:0; top:0; width:var(--sq); height:var(--sq); pointer-events:none; opacity:0; transition:opacity .25s}
+  .mark::after{content:""; position:absolute; inset:3px; border:2px solid var(--shu); border-radius:2px}
+  .mark.on{opacity:.9}
+  .mark.from::after{border-style:dashed; opacity:.55}
+
+  .controls{display:flex; gap:8px; flex-wrap:wrap; justify-content:center}
+  button{font-family:var(--gothic); font-size:13px; letter-spacing:.1em; color:var(--washi);
+    background:var(--sumi-3); border:1px solid var(--line); border-radius:3px; padding:9px 16px; cursor:pointer;
+    transition:border-color .2s,color .2s}
+  button:hover:not([disabled]){border-color:var(--kin); color:#F6EBD3}
+  button:focus-visible{outline:2px solid var(--kin); outline-offset:2px}
+  button.primary{background:linear-gradient(170deg,#3A2E1C,#241C12); border-color:#6B5426; color:#F0DCA8}
+  button[disabled]{opacity:.45; cursor:default}
+  button.sm{padding:5px 11px; font-size:12px}
+
+  select,input[type="text"],input[type="url"],textarea{
+    font-family:var(--gothic); font-size:13px; color:var(--washi); background:#171310;
+    border:1px solid var(--line); border-radius:3px; padding:7px 9px; width:100%}
+  textarea{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; line-height:1.6; min-height:200px; resize:vertical}
+  select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--kin); outline-offset:1px}
+  label{display:block; font-size:11px; letter-spacing:.14em; color:var(--washi-dim); margin-bottom:5px}
+
+  .panel{background:var(--sumi-2); border:1px solid var(--line); border-radius:4px; overflow:hidden; margin-bottom:16px}
+  .panel h2{margin:0; font-family:var(--mincho); font-size:13px; letter-spacing:.22em; font-weight:500;
+    padding:11px 14px; border-bottom:1px solid var(--line); color:var(--washi-dim)}
+  .panel .body{padding:12px 14px; display:grid; gap:12px}
+  .kifu{list-style:none; margin:0; padding:6px 0; max-height:300px; overflow-y:auto}
+  .kifu li{display:grid; grid-template-columns:30px 1fr auto; gap:10px; align-items:baseline; padding:4px 14px;
+    font-variant-numeric:tabular-nums; border-left:2px solid transparent}
+  .kifu li .n{color:#6F6455; font-size:11px}
+  .kifu li .mv{font-family:var(--mincho); font-size:14px; letter-spacing:.04em}
+  .kifu li .ms{font-size:10px; color:var(--washi-dim)}
+  .kifu li.cur{background:rgba(203,162,63,.08); border-left-color:var(--kin)}
+  .kifu li.gote .mv{color:#E9A79A}
+  .stats{display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line); border-top:1px solid var(--line)}
+  .stats div{background:var(--sumi-2); padding:9px 14px}
+  .stats .k{font-size:10px; letter-spacing:.14em; color:var(--washi-dim)}
+  .stats .v{font-family:var(--mincho); font-size:17px; font-variant-numeric:tabular-nums}
+
+  .tabs{display:flex; gap:6px; border-bottom:1px solid var(--line); margin-bottom:14px; flex-wrap:wrap}
+  .tabs button{border:0; border-bottom:2px solid transparent; background:none; padding:8px 12px; color:var(--washi-dim);
+    font-family:var(--mincho); letter-spacing:.14em; font-size:14px}
+  .tabs button[aria-selected="true"]{color:var(--kin); border-bottom-color:var(--kin)}
+  .row{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  @media (max-width:560px){ .row{grid-template-columns:1fr} }
+  .msg{font-size:12px; border-radius:3px; padding:8px 11px; border:1px solid var(--line); background:#171310; white-space:pre-wrap}
+  .msg.ok{border-color:rgba(127,169,107,.5); color:#CBE3BE}
+  .msg.ng{border-color:rgba(194,57,43,.55); color:#F0B6AE}
+  .list{list-style:none; margin:0; padding:0; display:grid; gap:6px}
+  .list li{display:flex; align-items:center; gap:8px; justify-content:space-between; border:1px solid var(--line);
+    border-radius:3px; padding:7px 10px; background:#171310}
+  .list li .nm{font-family:var(--mincho); font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .list li .acts{display:flex; gap:6px; flex:none}
+  .rank-list li .pt{font-variant-numeric:tabular-nums; color:var(--kin); font-family:var(--mincho)}
+
+  .foot{margin-top:28px; padding-top:14px; border-top:1px solid var(--line); color:var(--washi-dim); font-size:12px; max-width:64ch}
+  @media (prefers-reduced-motion:reduce){ .piece,.evalfill,.mark{transition:none} }
+</style>
+<script src="config.js"></script>
+<style>.kg-home{position:fixed;top:10px;left:12px;z-index:9999;font-size:13px;text-decoration:none;color:#CBA23F;background:rgba(20,18,16,.72);padding:5px 10px;border-radius:999px;border:1px solid rgba(203,162,63,.35);backdrop-filter:blur(6px)}.kg-home:hover{background:rgba(20,18,16,.92)}</style>
+</head>
+<body>
+<a class="kg-home" href="./">← 影武者</a>
+<div class="wrap">
+  <header class="masthead">
+    <div class="brand"><h1>影武者</h1><span class="romaji">Kagemusha</span></div>
+    <span class="matchno">将棋 ・ コード同士の対戦</span>
+  </header>
+
+  <div class="card-row">
+    <div class="player">
+      <span class="seal s">先</span>
+      <div><div class="pname" id="senteName">先手</div><div class="meta" id="senteMeta"></div></div>
+    </div>
+    <div class="versus">対</div>
+    <div class="player g">
+      <span class="seal g">後</span>
+      <div><div class="pname" id="goteName">後手</div><div class="meta" id="goteMeta"></div></div>
+    </div>
+  </div>
+
+  <div class="evaltrack"><div class="evalfill" id="evalfill"></div></div>
+  <div class="evalrow"><span id="turnLabel">先手番</span><span>駒得（歩1・香桂3・銀5・金6・角8・飛10）</span></div>
+
+  <div class="stage">
+    <div class="boardcol">
+      <div class="hand" id="handG"><span class="label">後手 持駒</span><span class="pieces"></span></div>
+      <div class="board" id="board"><div class="grid" id="grid"></div></div>
+      <div class="hand" id="handS"><span class="label">先手 持駒</span><span class="pieces"></span></div>
+
+      <div class="controls">
+        <button class="primary" id="play">対局開始</button>
+        <button id="step">1手進める</button>
+        <button id="reset">最初から</button>
+        <select id="speed" style="width:auto">
+          <option value="1200">ゆっくり</option>
+          <option value="600" selected>ふつう</option>
+          <option value="220">はやい</option>
+          <option value="0">一気に</option>
+        </select>
+      </div>
+      <div class="msg" id="gameMsg" hidden></div>
+    </div>
+
+    <aside>
+      <section class="panel">
+        <h2>棋　譜</h2>
+        <ol class="kifu" id="kifu"></ol>
+        <div class="stats">
+          <div><div class="k">手数</div><div class="v" id="ply">0</div></div>
+          <div><div class="k">平均思考</div><div class="v" id="avg">—</div></div>
+          <div><div class="k">駒得</div><div class="v" id="mat">±0</div></div>
+          <div><div class="k">王手</div><div class="v" id="checks">0</div></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>対戦相手</h2>
+        <div class="body">
+          <div><label for="selS">先手</label><select id="selS"></select></div>
+          <div><label for="selG">後手</label><select id="selG"></select></div>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <section class="panel" style="margin-top:26px">
+    <h2>影武者をつくる</h2>
+    <div class="body">
+      <div class="tabs" role="tablist">
+        <button id="tabEdit" role="tab" aria-selected="true" aria-controls="paneEdit">コード</button>
+        <button id="tabMine" role="tab" aria-selected="false" aria-controls="paneMine">マイ影武者</button>
+        <button id="tabServer" role="tab" aria-selected="false" aria-controls="paneServer">サーバー対戦</button>
+      </div>
+
+      <div id="paneEdit" role="tabpanel">
+        <div class="row">
+          <div><label for="botName">名前</label><input type="text" id="botName" value="霞"></div>
+          <div style="display:flex; align-items:flex-end; gap:8px">
+            <button id="btnTest">自動テスト</button>
+            <button class="primary" id="btnSave">保存する</button>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <label for="code">bot(state, player, legalMoves) — state = {board, hands}／player は "s"（先手）か "g"（後手）</label>
+          <textarea id="code" spellcheck="false"></textarea>
+        </div>
+        <div class="msg" id="testMsg" hidden style="margin-top:10px"></div>
+      </div>
+
+      <div id="paneMine" role="tabpanel" hidden>
+        <ul class="list" id="mineList"></ul>
+        <div class="controls" style="justify-content:flex-start; margin-top:12px">
+          <button class="sm" id="btnExport">エクスポート</button>
+          <button class="sm" id="btnImport">インポート</button>
+          <input type="file" id="fileImport" accept="application/json" hidden>
+        </div>
+        <div class="msg" id="mineMsg" hidden style="margin-top:10px"></div>
+      </div>
+
+      <div id="paneServer" role="tabpanel" hidden>
+        <div class="row">
+          <div><label for="apiBase">サーバーのURL</label><input type="url" id="apiBase" value="" placeholder="https://..."></div>
+          <div style="display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap">
+            <button id="btnRegister">この影武者を登録</button>
+            <button id="btnRank">ランキング取得</button>
+          </div>
+        </div>
+        <ul class="list rank-list" id="rankList" style="margin-top:12px"></ul>
+        <div class="msg" id="serverMsg" hidden style="margin-top:10px"></div>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot">
+    盤は榧、駒は明朝体の五角形。後手の駒は実物と同じく180度回転で区別し、成駒は朱色です。ルールは持ち駒・成り（強制／任意）・二歩・行き所のない駒・王手・詰みまで判定します。打ち歩詰めの判定は入れていません。
+  </p>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var N = 9, S = 's', G = 'g';
+  var STORE_KEY = 'kagemusha.shogi.bots';
+
+  var LABEL = {P:'歩',L:'香',N:'桂',S:'銀',G:'金',B:'角',R:'飛',K:'玉'};
+  var PRO_LABEL = {P:'と',L:'杏',N:'圭',S:'全',B:'馬',R:'龍'};
+  var VALUE = {P:1,L:3,N:3,S:5,G:6,B:8,R:10,K:0};
+  var PRO_VALUE = {P:6,L:6,N:6,S:6,B:12,R:14};
+  var KAN = ['','一','二','三','四','五','六','七','八','九'];
+
+  function mk(k,s,p){ return {k:k, s:s, p:!!p}; }
+  function initialBoard(){
+    var b = [];
+    for(var r=0;r<N;r++) b.push(new Array(N).fill(null));
+    var back = ['L','N','S','G','K','G','S','N','L'];
+    for(var c=0;c<N;c++){
+      b[0][c] = mk(back[c], G);
+      b[8][c] = mk(back[c], S);
+      b[2][c] = mk('P', G);
+      b[6][c] = mk('P', S);
+    }
+    b[1][1] = mk('R', G); b[1][7] = mk('B', G);
+    b[7][1] = mk('B', S); b[7][7] = mk('R', S);
+    return b;
+  }
+  function cloneBoard(b){ return b.map(function(row){ return row.map(function(p){ return p ? {k:p.k,s:p.s,p:p.p} : null; }); }); }
+  function cloneHands(h){ return {s:h.s.slice(), g:h.g.slice()}; }
+
+  function inside(r,c){ return r>=0 && r<N && c>=0 && c<N; }
+  function forward(side){ return side === S ? -1 : 1; }
+  function enemyZone(side, r){ return side === S ? r <= 2 : r >= 6; }
+
+  var GOLD_DIRS = function(side){
+    var f = forward(side);
+    return [[f,-1],[f,0],[f,1],[0,-1],[0,1],[-f,0]];
+  };
+
+  function pieceMoves(board, r, c){
+    var p = board[r][c];
+    if(!p) return [];
+    var f = forward(p.s), out = [], i;
+    function step(dr,dc){
+      var rr=r+dr, cc=c+dc;
+      if(inside(rr,cc) && (!board[rr][cc] || board[rr][cc].s !== p.s)) out.push([rr,cc]);
+    }
+    function slide(dr,dc){
+      var rr=r+dr, cc=c+dc;
+      while(inside(rr,cc)){
+        if(!board[rr][cc]){ out.push([rr,cc]); }
+        else { if(board[rr][cc].s !== p.s) out.push([rr,cc]); break; }
+        rr+=dr; cc+=dc;
+      }
+    }
+    var kind = p.k, pro = p.p;
+    if(pro && (kind==='P'||kind==='L'||kind==='N'||kind==='S')) kind = 'G';
+
+    if(kind === 'P'){ step(f,0); }
+    else if(kind === 'L'){ slide(f,0); }
+    else if(kind === 'N'){ step(2*f,-1); step(2*f,1); }
+    else if(kind === 'S'){ step(f,-1); step(f,0); step(f,1); step(-f,-1); step(-f,1); }
+    else if(kind === 'G'){ GOLD_DIRS(p.s).forEach(function(d){ step(d[0],d[1]); }); }
+    else if(kind === 'K'){ for(i=-1;i<=1;i++) for(var j=-1;j<=1;j++) if(i||j) step(i,j); }
+    else if(kind === 'B'){ slide(-1,-1); slide(-1,1); slide(1,-1); slide(1,1);
+      if(pro){ step(-1,0); step(1,0); step(0,-1); step(0,1); } }
+    else if(kind === 'R'){ slide(-1,0); slide(1,0); slide(0,-1); slide(0,1);
+      if(pro){ step(-1,-1); step(-1,1); step(1,-1); step(1,1); } }
+    return out;
+  }
+
+  function findKing(board, side){
+    for(var r=0;r<N;r++) for(var c=0;c<N;c++){
+      var p = board[r][c];
+      if(p && p.s===side && p.k==='K') return [r,c];
+    }
+    return null;
+  }
+  function inCheck(board, side){
+    var king = findKing(board, side);
+    if(!king) return true;
+    for(var r=0;r<N;r++) for(var c=0;c<N;c++){
+      var p = board[r][c];
+      if(!p || p.s===side) continue;
+      var ms = pieceMoves(board,r,c);
+      for(var i=0;i<ms.length;i++) if(ms[i][0]===king[0] && ms[i][1]===king[1]) return true;
+    }
+    return false;
+  }
+
+  function mustPromote(kind, side, toR){
+    if(kind==='P'||kind==='L') return side===S ? toR===0 : toR===8;
+    if(kind==='N') return side===S ? toR<=1 : toR>=7;
+    return false;
+  }
+  function canPromote(p, fromR, toR){
+    if(p.p) return false;
+    if(p.k==='G'||p.k==='K') return false;
+    return enemyZone(p.s, fromR) || enemyZone(p.s, toR);
+  }
+
+  function pseudoMoves(state, side){
+    var board = state.board, out = [];
+    for(var r=0;r<N;r++) for(var c=0;c<N;c++){
+      var p = board[r][c];
+      if(!p || p.s!==side) continue;
+      pieceMoves(board,r,c).forEach(function(t){
+        var toR=t[0], toC=t[1];
+        var forced = mustPromote(p.k, side, toR);
+        if(!forced) out.push({type:'move', from:[r,c], to:[toR,toC], promote:false});
+        if(canPromote(p, r, toR)) out.push({type:'move', from:[r,c], to:[toR,toC], promote:true});
+      });
+    }
+    // 打つ手
+    var hand = state.hands[side];
+    var kinds = {};
+    hand.forEach(function(k){ kinds[k] = true; });
+    Object.keys(kinds).forEach(function(kind){
+      for(var r2=0;r2<N;r2++) for(var c2=0;c2<N;c2++){
+        if(board[r2][c2]) continue;
+        if(mustPromote(kind, side, r2)) continue;          // 行き所のない駒
+        if(kind==='P'){
+          var nifu = false;
+          for(var rr=0;rr<N;rr++){
+            var q = board[rr][c2];
+            if(q && q.s===side && q.k==='P' && !q.p){ nifu = true; break; }
+          }
+          if(nifu) continue;                                // 二歩
+        }
+        out.push({type:'drop', piece:kind, to:[r2,c2]});
+      }
+    });
+    return out;
+  }
+
+  function applyMove(state, move){
+    var board = state.board, hands = state.hands, captured = null;
+    if(move.type === 'drop'){
+      var idx = hands[state.turn].indexOf(move.piece);
+      if(idx >= 0) hands[state.turn].splice(idx,1);
+      board[move.to[0]][move.to[1]] = mk(move.piece, state.turn, false);
+    } else {
+      var p = board[move.from[0]][move.from[1]];
+      var target = board[move.to[0]][move.to[1]];
+      if(target){
+        captured = target.k;
+        hands[state.turn].push(target.k);
+      }
+      board[move.to[0]][move.to[1]] = mk(p.k, p.s, p.p || move.promote);
+      board[move.from[0]][move.from[1]] = null;
+    }
+    return captured;
+  }
+
+  function legalMoves(state, side){
+    return pseudoMoves(state, side).filter(function(m){
+      var test = {board:cloneBoard(state.board), hands:cloneHands(state.hands), turn:side};
+      applyMove(test, m);
+      return !inCheck(test.board, side);
+    });
+  }
+
+  function material(board, hands){
+    var score = 0;
+    for(var r=0;r<N;r++) for(var c=0;c<N;c++){
+      var p = board[r][c];
+      if(!p) continue;
+      var v = p.p ? (PRO_VALUE[p.k] || VALUE[p.k]) : VALUE[p.k];
+      score += (p.s===S ? v : -v);
+    }
+    hands.s.forEach(function(k){ score += VALUE[k]; });
+    hands.g.forEach(function(k){ score -= VALUE[k]; });
+    return score;
+  }
+
+  function notation(state, move, side){
+    var mark = side===S ? '▲' : '△';
+    var file = 9 - move.to[1], rank = KAN[move.to[0]+1];
+    if(move.type === 'drop') return mark + file + rank + LABEL[move.piece] + '打';
+    var p = state.board[move.from[0]][move.from[1]];
+    var name = p.p ? (PRO_LABEL[p.k] || LABEL[p.k]) : LABEL[p.k];
+    return mark + file + rank + name + (move.promote ? '成' : '');
+  }
+
+  /* ============ サンプル戦略 ============ */
+  var SAMPLES = {
+    random: { name:'ランダム', meta:'合法手から無作為に選ぶ',
+      fn: function(state, player, moves){ return moves[Math.floor(Math.random()*moves.length)]; } },
+    capture: { name:'捕獲優先', meta:'取れる駒があれば価値の高いものを取る',
+      fn: function(state, player, moves){
+        var best = null, bestV = -1;
+        moves.forEach(function(m){
+          if(m.type !== 'move') return;
+          var t = state.board[m.to[0]][m.to[1]];
+          if(!t) return;
+          var v = ({P:1,L:3,N:3,S:5,G:6,B:8,R:10,K:100})[t.k] || 0;
+          if(v > bestV){ bestV = v; best = m; }
+        });
+        return best || moves[Math.floor(Math.random()*moves.length)];
+      } },
+    material: { name:'駒得1手読み', meta:'1手指した後の駒得が最大になる手',
+      fn: function(state, player, moves){
+        var sign = player === 's' ? 1 : -1, best = moves[0], bestScore = -Infinity;
+        moves.forEach(function(m){
+          var b = state.board.map(function(row){ return row.map(function(p){ return p ? {k:p.k,s:p.s,p:p.p} : null; }); });
+          var h = {s:state.hands.s.slice(), g:state.hands.g.slice()};
+          var st = {board:b, hands:h, turn:player};
+          if(m.type==='drop'){
+            var i = h[player].indexOf(m.piece); if(i>=0) h[player].splice(i,1);
+            b[m.to[0]][m.to[1]] = {k:m.piece, s:player, p:false};
+          } else {
+            var pc = b[m.from[0]][m.from[1]], tg = b[m.to[0]][m.to[1]];
+            if(tg) h[player].push(tg.k);
+            b[m.to[0]][m.to[1]] = {k:pc.k, s:pc.s, p:pc.p || m.promote};
+            b[m.from[0]][m.from[1]] = null;
+          }
+          var score = 0;
+          for(var r=0;r<9;r++) for(var c=0;c<9;c++){
+            var q = b[r][c]; if(!q) continue;
+            var v = q.p ? ({P:6,L:6,N:6,S:6,B:12,R:14}[q.k] || {P:1,L:3,N:3,S:5,G:6,B:8,R:10,K:0}[q.k])
+                        : {P:1,L:3,N:3,S:5,G:6,B:8,R:10,K:0}[q.k];
+            score += (q.s==='s' ? v : -v);
+          }
+          h.s.forEach(function(k){ score += {P:1,L:3,N:3,S:5,G:6,B:8,R:10,K:0}[k]; });
+          h.g.forEach(function(k){ score -= {P:1,L:3,N:3,S:5,G:6,B:8,R:10,K:0}[k]; });
+          score *= sign;
+          if(score > bestScore){ bestScore = score; best = m; }
+        });
+        return best;
+      } }
+  };
+
+  var DEFAULT_CODE =
+    '// legalMoves の中から1つ選んで返す\n' +
+    '// 指し手: {type:"move", from:[r,c], to:[r,c], promote:bool}\n' +
+    '// 打つ手: {type:"drop", piece:"P", to:[r,c]}\n' +
+    'function bot(state, player, legalMoves) {\n' +
+    '  // 成れるなら成る、取れるなら取る\n' +
+    '  const captures = legalMoves.filter(m =>\n' +
+    '    m.type === "move" && state.board[m.to[0]][m.to[1]]);\n' +
+    '  const promos = captures.filter(m => m.promote);\n' +
+    '  if (promos.length) return promos[0];\n' +
+    '  if (captures.length) return captures[0];\n' +
+    '  return legalMoves[Math.floor(Math.random() * legalMoves.length)];\n' +
+    '}\n';
+
+  /* ============ 保存 ============ */
+  function loadBots(){ try{ var raw = localStorage.getItem(STORE_KEY); return raw ? JSON.parse(raw) : []; }catch(e){ return []; } }
+  function saveBots(list){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(list)); return true; }catch(e){ return false; } }
+  var myBots = loadBots();
+
+  function compile(code){
+    var fn = (new Function('"use strict";' + code + '; return typeof bot === "function" ? bot : null;'))();
+    if(typeof fn !== 'function') throw new Error('bot という名前の関数が見つかりません');
+    return fn;
+  }
+  function publicState(state){
+    return {
+      board: state.board.map(function(row){ return row.map(function(p){ return p ? {k:p.k, s:p.s, p:p.p} : null; }); }),
+      hands: {s:state.hands.s.slice(), g:state.hands.g.slice()}
+    };
+  }
+  function sameMove(a,b){
+    if(!a || !b || a.type !== b.type) return false;
+    if(a.type === 'drop') return a.piece===b.piece && a.to[0]===b.to[0] && a.to[1]===b.to[1];
+    return a.from[0]===b.from[0] && a.from[1]===b.from[1] && a.to[0]===b.to[0] && a.to[1]===b.to[1] && !!a.promote === !!b.promote;
+  }
+  function runTests(code){
+    var fn = compile(code);
+    var cases = [
+      {label:'初期局面（先手）', state:{board:initialBoard(), hands:{s:[],g:[]}}, side:S},
+      {label:'1手目の後（後手）', state:(function(){
+        var st = {board:initialBoard(), hands:{s:[],g:[]}, turn:S};
+        applyMove(st, {type:'move', from:[6,2], to:[5,2], promote:false});
+        return {board:st.board, hands:st.hands};
+      })(), side:G}
+    ];
+    cases.forEach(function(cs){
+      var st = {board:cs.state.board, hands:cs.state.hands, turn:cs.side};
+      var moves = legalMoves(st, cs.side);
+      var picked = fn(publicState(st), cs.side, JSON.parse(JSON.stringify(moves)));
+      if(!picked) throw new Error(cs.label + '：手を返していません');
+      if(!moves.some(function(m){ return sameMove(m, picked); }))
+        throw new Error(cs.label + '：合法手ではない手を返しました');
+    });
+    return cases.length;
+  }
+
+  /* ============ 描画 ============ */
+  var boardEl = document.getElementById('board');
+  var gridEl = document.getElementById('grid');
+  var marks = {};
+  ['from','to'].forEach(function(k){
+    var m = document.createElement('div'); m.className = 'mark ' + k; boardEl.appendChild(m); marks[k] = m;
+  });
+  (function drawGrid(){
+    for(var i=1;i<N;i++){
+      var v=document.createElement('i'); v.className='v'; v.style.left=(i/N*100)+'%'; gridEl.appendChild(v);
+      var h=document.createElement('i'); h.className='h'; h.style.top=(i/N*100)+'%'; gridEl.appendChild(h);
+    }
+    [[3,3],[3,6],[6,3],[6,6]].forEach(function(p){
+      var d=document.createElement('span'); d.className='star';
+      d.style.left=(p[1]/N*100)+'%'; d.style.top=(p[0]/N*100)+'%'; gridEl.appendChild(d);
+    });
+  })();
+
+  var pieceEls = [];
+  function place(el,r,c){ el.style.transform = 'translate(' + (c*100) + '%,' + (r*100) + '%)'; }
+
+  var state, timer = null, times = [], checks = 0, over = false;
+  var players = {};
+
+  function render(){
+    pieceEls.forEach(function(el){ el.remove(); });
+    pieceEls = [];
+    for(var r=0;r<N;r++) for(var c=0;c<N;c++){
+      var p = state.board[r][c];
+      if(!p) continue;
+      var el = document.createElement('div');
+      el.className = 'piece ' + (p.s===G ? 'g' : 's') + (p.p ? ' pro' : '');
+      var label = p.p ? (PRO_LABEL[p.k] || LABEL[p.k]) : LABEL[p.k];
+      if(p.k === 'K' && p.s === S) label = '王';
+      el.innerHTML = '<span class="face">' + label + '</span>';
+      boardEl.appendChild(el);
+      place(el, r, c);
+      pieceEls.push(el);
+    }
+    [[S,'handS'],[G,'handG']].forEach(function(pair){
+      var box = document.getElementById(pair[1]).querySelector('.pieces');
+      var list = state.hands[pair[0]];
+      box.innerHTML = '';
+      if(!list.length){ box.innerHTML = '<span class="none">なし</span>'; return; }
+      var count = {};
+      list.forEach(function(k){ count[k] = (count[k]||0)+1; });
+      ['R','B','G','S','N','L','P'].forEach(function(k){
+        if(!count[k]) return;
+        var s = document.createElement('span');
+        s.className = 'mini';
+        s.innerHTML = LABEL[k] + (count[k]>1 ? '<sub>'+count[k]+'</sub>' : '');
+        box.appendChild(s);
+      });
+    });
+    var m = material(state.board, state.hands);
+    document.getElementById('mat').textContent = m === 0 ? '±0' : (m > 0 ? '+' + m : String(m));
+    document.getElementById('evalfill').style.width = Math.max(6, Math.min(94, 50 + m * 2.2)) + '%';
+    document.getElementById('turnLabel').textContent = over ? '対局終了' : (state.turn===S ? '先手番' : '後手番');
+    document.getElementById('ply').textContent = state.ply;
+    document.getElementById('checks').textContent = checks;
+    document.getElementById('avg').textContent = times.length
+      ? Math.round(times.reduce(function(a,b){return a+b;},0)/times.length) + 'ms' : '—';
+  }
+
+  function log(text, side, ms){
+    var kifu = document.getElementById('kifu');
+    var cur = kifu.querySelector('.cur'); if(cur) cur.classList.remove('cur');
+    var li = document.createElement('li');
+    li.className = 'cur' + (side===G ? ' gote' : '');
+    li.innerHTML = '<span class="n">' + state.ply + '</span><span class="mv">' + text +
+      '</span><span class="ms">' + (ms==null?'':ms+'ms') + '</span>';
+    kifu.appendChild(li); kifu.scrollTop = kifu.scrollHeight;
+  }
+  function showMsg(id, text, cls){
+    var el = document.getElementById(id);
+    el.hidden = !text; el.textContent = text || '';
+    el.className = 'msg' + (cls ? ' ' + cls : '');
+  }
+
+  function newGame(){
+    stop();
+    state = {board:initialBoard(), hands:{s:[],g:[]}, turn:S, ply:0};
+    times = []; checks = 0; over = false;
+    marks.from.classList.remove('on'); marks.to.classList.remove('on');
+    document.getElementById('kifu').innerHTML =
+      '<li class="cur"><span class="n">—</span><span class="mv">開始局面</span><span class="ms">先手番</span></li>';
+    showMsg('gameMsg','');
+    document.getElementById('play').textContent = '対局開始';
+    render();
+  }
+
+  function finish(reason){
+    over = true; stop();
+    showMsg('gameMsg', reason, 'ok');
+    render();
+  }
+
+  function oneStep(){
+    if(over) return false;
+    if(state.ply >= 300){
+      var m = material(state.board, state.hands);
+      finish('300手に到達 ― ' + (m === 0 ? '引き分け' : (m > 0 ? '先手優勢につき先手の勝ち' : '後手優勢につき後手の勝ち')) +
+        '（駒得 ' + (m>0?'+':'') + m + '）');
+      return false;
+    }
+    var side = state.turn;
+    var moves = legalMoves(state, side);
+    if(!moves.length){
+      finish((side===S ? '先手' : '後手') + 'に指す手がありません ― ' + (side===S ? '後手' : '先手') + 'の勝ち');
+      return false;
+    }
+    var p = players[side];
+    var t0 = (window.performance && performance.now) ? performance.now() : Date.now();
+    var picked = null, failed = null;
+    try{
+      picked = p.fn(publicState(state), side, JSON.parse(JSON.stringify(moves)));
+    }catch(e){ failed = String(e && e.message || e); }
+    var t1 = (window.performance && performance.now) ? performance.now() : Date.now();
+    var ms = Math.max(1, Math.round(t1 - t0));
+
+    var chosen = null;
+    for(var i=0;i<moves.length;i++) if(sameMove(moves[i], picked)){ chosen = moves[i]; break; }
+    var fellBack = false;
+    if(!chosen){ chosen = moves[Math.floor(Math.random()*moves.length)]; fellBack = true; }
+
+    var text = notation(state, chosen, side);
+    applyMove(state, chosen);
+    state.ply++; times.push(ms);
+
+    marks.from.classList.remove('on');
+    if(chosen.type === 'move'){
+      place(marks.from, chosen.from[0], chosen.from[1]);
+      marks.from.classList.add('on');
+    }
+    place(marks.to, chosen.to[0], chosen.to[1]);
+    marks.to.classList.add('on');
+
+    state.turn = side===S ? G : S;
+    var givesCheck = inCheck(state.board, state.turn);
+    if(givesCheck) checks++;
+
+    log(text + (givesCheck ? '（王手）' : '') + (fellBack ? ' ※無効手→ランダム' : ''), side, ms);
+    if(failed) showMsg('gameMsg', (side===S?'先手':'後手') + 'のコードでエラー：' + failed + '（ランダムな合法手で続行）', 'ng');
+
+    render();
+
+    if(!legalMoves(state, state.turn).length){
+      finish(givesCheck
+        ? (side===S ? '先手' : '後手') + 'の勝ち ― 詰み（' + state.ply + '手）'
+        : (state.turn===S ? '先手' : '後手') + 'に指す手がありません ― ' + (side===S?'先手':'後手') + 'の勝ち');
+      return false;
+    }
+    return true;
+  }
+
+  var playBtn = document.getElementById('play');
+  function stop(){ if(timer){ clearInterval(timer); timer = null; } if(playBtn) playBtn.textContent = over ? '対局開始' : '再開'; }
+  function play(){
+    if(timer){ stop(); return; }
+    if(over) newGame();
+    syncPlayers();
+    var speed = parseInt(document.getElementById('speed').value, 10);
+    playBtn.textContent = '一時停止';
+    if(speed === 0){
+      var guard = 0;
+      while(!over && guard++ < 400){ if(!oneStep()) break; }
+      stop(); return;
+    }
+    timer = setInterval(function(){ if(!oneStep()) stop(); }, speed);
+  }
+
+  /* ============ 対戦相手 ============ */
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function optionsHtml(){
+    var html = '<optgroup label="サンプル戦略">';
+    Object.keys(SAMPLES).forEach(function(k){ html += '<option value="s:'+k+'">'+SAMPLES[k].name+'</option>'; });
+    html += '</optgroup>';
+    if(myBots.length){
+      html += '<optgroup label="マイ影武者">';
+      myBots.forEach(function(b,i){ html += '<option value="m:'+i+'">'+escapeHtml(b.name)+'</option>'; });
+      html += '</optgroup>';
+    }
+    return html;
+  }
+  var picked = {selS:'s:material', selG:'s:capture'};
+  function refreshSelects(){
+    ['selS','selG'].forEach(function(id){
+      var sel = document.getElementById(id);
+      sel.innerHTML = optionsHtml();
+      if(sel.querySelector('option[value="'+picked[id]+'"]')) sel.value = picked[id];
+      else { sel.selectedIndex = 0; picked[id] = sel.value; }
+    });
+    syncPlayers();
+  }
+  function resolve(value){
+    var kind = value.slice(0,1), key = value.slice(2);
+    if(kind === 's'){ var s = SAMPLES[key]; return {name:s.name, meta:s.meta, fn:s.fn}; }
+    var bot = myBots[parseInt(key,10)];
+    if(!bot) return {name:'ランダム', meta:'（見つからないため代替）', fn:SAMPLES.random.fn};
+    var fn; try{ fn = compile(bot.code); }catch(e){ fn = SAMPLES.random.fn; }
+    return {name:bot.name, meta:'マイ影武者', fn:fn};
+  }
+  function syncPlayers(){
+    players[S] = resolve(document.getElementById('selS').value || 's:material');
+    players[G] = resolve(document.getElementById('selG').value || 's:capture');
+    document.getElementById('senteName').textContent = '先手 ／ ' + players[S].name;
+    document.getElementById('senteMeta').textContent = players[S].meta;
+    document.getElementById('goteName').textContent = players[G].name + ' ／ 後手';
+    document.getElementById('goteMeta').textContent = players[G].meta;
+  }
+
+  /* ============ マイ影武者 ============ */
+  function renderMine(){
+    var ul = document.getElementById('mineList');
+    ul.innerHTML = '';
+    if(!myBots.length){ ul.innerHTML = '<li><span class="nm" style="color:#6F6455">まだ保存された影武者はありません</span></li>'; return; }
+    myBots.forEach(function(bot,i){
+      var li = document.createElement('li');
+      li.innerHTML = '<span class="nm">'+escapeHtml(bot.name)+'</span><span class="acts">' +
+        '<button class="sm" data-edit="'+i+'">編集</button><button class="sm" data-del="'+i+'">削除</button></span>';
+      ul.appendChild(li);
+    });
+  }
+  document.getElementById('mineList').addEventListener('click', function(e){
+    var t = e.target;
+    if(t.dataset.edit != null){
+      var bot = myBots[+t.dataset.edit];
+      document.getElementById('botName').value = bot.name;
+      document.getElementById('code').value = bot.code;
+      switchTab('tabEdit');
+      showMsg('testMsg', '「'+bot.name+'」を読み込みました。', '');
+    }
+    if(t.dataset.del != null){
+      var i = +t.dataset.del, nm = myBots[i].name;
+      myBots.splice(i,1); saveBots(myBots); renderMine(); refreshSelects();
+      showMsg('mineMsg', '「'+nm+'」を削除しました。', '');
+    }
+  });
+
+  document.getElementById('btnTest').addEventListener('click', function(){
+    try{
+      var n = runTests(document.getElementById('code').value);
+      showMsg('testMsg', '自動テスト合格（'+n+'局面で合法手を返しました）', 'ok');
+    }catch(e){ showMsg('testMsg', '不合格：' + (e && e.message || e), 'ng'); }
+  });
+  document.getElementById('btnSave').addEventListener('click', function(){
+    var name = document.getElementById('botName').value.trim();
+    var code = document.getElementById('code').value;
+    if(!name){ showMsg('testMsg','名前を入れてください。','ng'); return; }
+    try{ runTests(code); }catch(e){ showMsg('testMsg','保存しませんでした ― ' + (e && e.message || e),'ng'); return; }
+    var idx = -1; myBots.forEach(function(b,i){ if(b.name===name) idx = i; });
+    var rec = {name:name, code:code, updatedAt:new Date().toISOString()};
+    if(idx>=0) myBots[idx] = rec; else myBots.push(rec);
+    var stored = saveBots(myBots);
+    renderMine(); refreshSelects();
+    showMsg('testMsg', stored ? '「'+name+'」を保存しました。' :
+      '「'+name+'」を使えるようにしました（このブラウザには保存できない設定のため、閉じると消えます）。', stored ? 'ok' : 'ng');
+  });
+  document.getElementById('btnExport').addEventListener('click', function(){
+    var json = JSON.stringify({game:'shogi', bots:myBots}, null, 2);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(json).then(function(){
+        showMsg('mineMsg','コピーしました。テキストファイルに貼り付けて保存してください。','ok');
+      }, function(){ showMsg('mineMsg', json, ''); });
+    } else showMsg('mineMsg', json, '');
+  });
+  document.getElementById('btnImport').addEventListener('click', function(){ document.getElementById('fileImport').click(); });
+  document.getElementById('fileImport').addEventListener('change', function(e){
+    var f = e.target.files && e.target.files[0]; if(!f) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var data = JSON.parse(String(reader.result));
+        var list = Array.isArray(data) ? data : data.bots;
+        if(!Array.isArray(list)) throw new Error('bots の配列が見つかりません');
+        list.forEach(function(b){ if(b && b.name && typeof b.code === 'string') myBots.push({name:b.name, code:b.code}); });
+        saveBots(myBots); renderMine(); refreshSelects();
+        showMsg('mineMsg', list.length + '体を読み込みました。', 'ok');
+      }catch(err){ showMsg('mineMsg','読み込めませんでした：' + (err && err.message || err),'ng'); }
+    };
+    reader.readAsText(f); e.target.value = '';
+  });
+
+  /* ============ サーバー対戦 ============ */
+  function api(path){ return document.getElementById('apiBase').value.replace(/\/+$/,'') + path; }
+  document.getElementById('btnRegister').addEventListener('click', function(){
+    var name = document.getElementById('botName').value.trim() || '名もなき影武者';
+    showMsg('serverMsg','登録しています…','');
+    fetch(api('/api/kagemusha'), {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({game:'shogi', name:name, code:document.getElementById('code').value})})
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, body:j}; }); })
+      .then(function(res){
+        if(!res.ok) throw new Error(res.body && (res.body.error || res.body.message) || '登録できませんでした');
+        window.__myId = res.body.id || (res.body.kagemusha && res.body.kagemusha.id);
+        showMsg('serverMsg','登録しました（ID: ' + window.__myId + '）。','ok');
+      })
+      .catch(function(e){ showMsg('serverMsg','登録できませんでした：' + (e && e.message || e), 'ng'); });
+  });
+  document.getElementById('btnRank').addEventListener('click', function(){
+    showMsg('serverMsg','取得しています…','');
+    fetch(api('/api/rankings/shogi')).then(function(r){ return r.json(); })
+      .then(function(data){
+        var list = Array.isArray(data) ? data : (data.rankings || data.items || []);
+        var ul = document.getElementById('rankList'); ul.innerHTML = '';
+        if(!list.length) ul.innerHTML = '<li><span class="nm" style="color:#6F6455">まだ誰もいません</span></li>';
+        list.slice(0,20).forEach(function(k,i){
+          var li = document.createElement('li');
+          li.innerHTML = '<span class="nm">' + (i+1) + '. ' + escapeHtml(k.name || k.id) + '</span>' +
+            '<span class="acts"><span class="pt">' + Math.round(k.rating || 1500) + '</span>' +
+            '<button class="sm" data-challenge="' + escapeHtml(k.id) + '">挑戦</button></span>';
+          ul.appendChild(li);
+        });
+        showMsg('serverMsg','');
+      })
+      .catch(function(e){ showMsg('serverMsg','取得できませんでした：' + (e && e.message || e),'ng'); });
+  });
+  document.getElementById('rankList').addEventListener('click', function(e){
+    var id = e.target.dataset && e.target.dataset.challenge;
+    if(!id) return;
+    if(!window.__myId){ showMsg('serverMsg','先に「この影武者を登録」を押してください。','ng'); return; }
+    showMsg('serverMsg','対戦をサーバーで計算しています…','');
+    fetch(api('/api/challenges'), {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({game:'shogi', challengerId: window.__myId, defenderId: id})})
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, body:j}; }); })
+      .then(function(res){
+        if(!res.ok) throw new Error(res.body && (res.body.error || res.body.message) || '挑戦できませんでした');
+        var match = res.body.match || res.body;
+        var games = match.games || [];
+        var history = (games[0] && (games[0].moveHistory || games[0].moves)) || match.moveHistory;
+        showMsg('serverMsg','対戦結果を受け取りました。1局目を盤の上で再生します。','ok');
+        if(history && history.length) replay(history);
+      })
+      .catch(function(e){ showMsg('serverMsg','挑戦できませんでした：' + (e && e.message || e),'ng'); });
+  });
+
+  function replay(history){
+    newGame();
+    var i = 0;
+    var iv = setInterval(function(){
+      if(i >= history.length || over){ clearInterval(iv); return; }
+      var h = history[i++];
+      var moves = legalMoves(state, state.turn);
+      var m = null;
+      for(var j=0;j<moves.length;j++) if(sameMove(moves[j], h)){ m = moves[j]; break; }
+      if(!m){ clearInterval(iv); showMsg('gameMsg','再生できない手がありました（' + JSON.stringify(h) + '）','ng'); return; }
+      var text = notation(state, m, state.turn);
+      var side = state.turn;
+      applyMove(state, m); state.ply++;
+      if(m.type === 'move'){ place(marks.from, m.from[0], m.from[1]); marks.from.classList.add('on'); }
+      else marks.from.classList.remove('on');
+      place(marks.to, m.to[0], m.to[1]); marks.to.classList.add('on');
+      state.turn = side===S ? G : S;
+      log(text, side, null);
+      render();
+    }, 420);
+  }
+
+  /* ============ タブ ============ */
+  function switchTab(id){
+    [['tabEdit','paneEdit'],['tabMine','paneMine'],['tabServer','paneServer']].forEach(function(p){
+      var on = p[0] === id;
+      document.getElementById(p[0]).setAttribute('aria-selected', on ? 'true' : 'false');
+      document.getElementById(p[1]).hidden = !on;
+    });
+  }
+  ['tabEdit','tabMine','tabServer'].forEach(function(id){
+    document.getElementById(id).addEventListener('click', function(){ switchTab(id); });
+  });
+
+  /* ============ 起動 ============ */
+  document.getElementById('code').value = DEFAULT_CODE;
+  renderMine();
+  newGame();
+  refreshSelects();
+
+  playBtn.addEventListener('click', play);
+  document.getElementById('step').addEventListener('click', function(){ stop(); syncPlayers(); oneStep(); });
+  document.getElementById('reset').addEventListener('click', newGame);
+  ['selS','selG'].forEach(function(id){
+    document.getElementById(id).addEventListener('change', function(){ picked[id] = this.value; syncPlayers(); });
+  });
+})();
+</script>
+</body>
+</html>
