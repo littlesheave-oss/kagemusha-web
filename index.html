@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>影武者 — コードで戦う対戦場</title>
+<meta name="description" content="自分で書いたコードを「影武者」として置き、将棋・リバーシ・チェスで戦わせる対戦プラットフォーム。">
+<meta property="og:title" content="影武者 — コードで戦う対戦場">
+<meta property="og:description" content="自分で書いたコードを「影武者」として置き、将棋・リバーシ・チェスで戦わせる。">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sumi:#14120F;
+    --sumi-2:#1E1B17;
+    --washi:#EFE7D8;
+    --washi-dim:#B8AE9C;
+    --kin:#CBA23F;
+    --shu:#B4412E;
+    --line:rgba(203,162,63,.22);
+    --mincho:"Shippori Mincho", serif;
+    --gothic:"Zen Kaku Gothic New", system-ui, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(203,162,63,.10), transparent 60%),
+      var(--sumi);
+    color:var(--washi);
+    font-family:var(--gothic);
+    line-height:1.75;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:940px;margin:0 auto;padding:0 16px}
+
+  header{padding:72px 0 44px;text-align:center;position:relative}
+  header::after{
+    content:"";display:block;width:72px;height:1px;margin:34px auto 0;
+    background:linear-gradient(90deg,transparent,var(--kin),transparent);
+  }
+  .brand{
+    font-family:var(--mincho);font-weight:700;letter-spacing:.22em;
+    font-size:clamp(44px,9vw,76px);margin:0;color:var(--washi);
+    text-shadow:0 0 42px rgba(203,162,63,.18);
+  }
+  .brand .kg-ruby{display:block;font-family:var(--gothic);font-weight:500;
+    font-size:12px;letter-spacing:.5em;color:var(--kin);margin-bottom:14px}
+  .tagline{margin:22px auto 0;max-width:620px;color:var(--washi-dim);font-size:15px}
+
+  section{padding:46px 0}
+  h2{
+    font-family:var(--mincho);font-weight:700;font-size:20px;letter-spacing:.12em;
+    margin:0 0 22px;color:var(--washi);
+  }
+  h2::before{content:"";display:inline-block;width:8px;height:8px;margin-right:12px;
+    background:var(--kin);transform:rotate(45deg);vertical-align:middle}
+
+  .games{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(248px,1fr))}
+  .game{
+    display:block;text-decoration:none;color:inherit;
+    background:linear-gradient(180deg,var(--sumi-2),rgba(20,18,15,.6));
+    border:1px solid var(--line);border-radius:14px;padding:26px 24px;
+    transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+  }
+  .game:hover{transform:translateY(-3px);border-color:rgba(203,162,63,.5);
+    box-shadow:0 14px 40px rgba(0,0,0,.45)}
+  .game .kanji{font-family:var(--mincho);font-size:34px;font-weight:700;letter-spacing:.14em;
+    color:var(--washi);display:block}
+  .game .en{display:block;font-size:11px;letter-spacing:.34em;color:var(--kin);margin-top:8px}
+  .game .note{display:block;margin-top:16px;font-size:13px;color:var(--washi-dim)}
+  .game .go{display:inline-block;margin-top:18px;font-size:13px;color:var(--kin)}
+
+  .steps{counter-reset:s;list-style:none;margin:0;padding:0;display:grid;gap:14px}
+  .steps li{
+    counter-increment:s;position:relative;padding:16px 18px 16px 58px;
+    background:rgba(30,27,23,.6);border:1px solid rgba(203,162,63,.14);border-radius:12px;
+    font-size:14px;color:var(--washi-dim);
+  }
+  .steps li::before{
+    content:counter(s);position:absolute;left:18px;top:15px;
+    font-family:var(--mincho);font-size:17px;color:var(--kin);
+  }
+  .steps strong{color:var(--washi);font-weight:500}
+
+  pre{
+    background:#0F0E0C;border:1px solid rgba(203,162,63,.16);border-radius:12px;
+    padding:18px 20px;overflow-x:auto;font-size:13px;line-height:1.7;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#D8D2C4;
+  }
+  pre .c{color:#7E7667}
+  pre .k{color:var(--kin)}
+
+  .notes{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  .note-card{border-left:2px solid var(--shu);padding:4px 0 4px 16px;font-size:14px;color:var(--washi-dim)}
+  .note-card b{display:block;color:var(--washi);font-weight:500;margin-bottom:4px;font-size:14px}
+
+  footer{
+    padding:44px 0 64px;text-align:center;color:#6F6759;font-size:12px;
+    border-top:1px solid rgba(203,162,63,.12);margin-top:30px;
+  }
+  footer a{color:var(--washi-dim)}
+
+  @media (max-width:560px){
+    header{padding:52px 0 32px}
+    section{padding:34px 0}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1 class="brand"><span class="kg-ruby">KAGEMUSHA</span>影武者</h1>
+    <p class="tagline">
+      戦うのは人ではなく、あなたが書いたコード。<br>
+      一度置いておけば、あなたが寝ている間も、影武者が代わりに戦い続けます。
+    </p>
+  </header>
+
+  <section>
+    <h2>遊ぶ</h2>
+    <div class="games">
+      <a class="game" href="shogi.html">
+        <span class="kanji">将棋</span>
+        <span class="en">SHOGI</span>
+        <span class="note">持ち駒・成り・二歩・詰みまで判定。真上から見る2D盤。</span>
+        <span class="go">開く →</span>
+      </a>
+      <a class="game" href="reversi.html">
+        <span class="kanji">リバーシ</span>
+        <span class="en">REVERSI</span>
+        <span class="note">最初に書くならこれ。合法手・パス・終局まで。</span>
+        <span class="go">開く →</span>
+      </a>
+      <a class="game" href="chess.html">
+        <span class="kanji">チェス</span>
+        <span class="en">CHESS</span>
+        <span class="note">立体盤。キャスリング・アンパッサン・千日手まで。</span>
+        <span class="go">開く →</span>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>やり方</h2>
+    <ol class="steps">
+      <li><strong>ゲームを開く。</strong>ダウンロードも登録もいりません。そのままブラウザで動きます。</li>
+      <li><strong>サンプル戦略同士を戦わせて、動きを見る。</strong>ランダム・貪欲・角優先の3種が入っています。</li>
+      <li><strong>「マイ影武者」で自分のコードを書く。</strong><code>bot(...)</code> を1つ書くだけ。自動テストに通れば保存できます。</li>
+      <li><strong>サンプルや自分の別バージョンと戦わせる。</strong>勝てるようになったら、サーバーに登録して他の人の影武者に挑みます。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>影武者の書き方</h2>
+    <pre><span class="c">// リバーシの例。提示された合法手から1つ選んで返すだけ。</span>
+<span class="k">function</span> bot(board, player, legalMoves) {
+  <span class="c">// 角が取れるなら取る</span>
+  <span class="k">const</span> corners = [[0,0],[0,7],[7,0],[7,7]];
+  <span class="k">for</span> (<span class="k">const</span> m <span class="k">of</span> legalMoves) {
+    <span class="k">if</span> (corners.some(c =&gt; c[0] === m.r &amp;&amp; c[1] === m.c)) <span class="k">return</span> m;
+  }
+  <span class="c">// なければ最初の合法手</span>
+  <span class="k">return</span> legalMoves[0];
+}</pre>
+    <p style="color:var(--washi-dim);font-size:14px;margin-top:18px">
+      ゲームごとに引数は少し違いますが、どれも「渡された合法手の中から1つ返す」だけです。
+      返す値がおかしかったり、エラーで落ちたり、時間切れになった場合は、
+      安全側（ランダムな合法手）に倒して対局は続きます。棋譜にはその印が残ります。
+    </p>
+  </section>
+
+  <section>
+    <h2>知っておいてほしいこと</h2>
+    <div class="notes">
+      <div class="note-card">
+        <b>コードはあなたのブラウザに保存されます</b>
+        マイ影武者はこの端末の中だけに残ります。書き出し・読み込みもできます。
+      </div>
+      <div class="note-card">
+        <b>サーバー対戦は隔離した中で動かします</b>
+        登録されたコードは、外に一切つながらない独立した実行環境で、時間とメモリの上限つきで動きます。
+      </div>
+      <div class="note-card">
+        <b>レーティングは1500から</b>
+        1回の挑戦で先後を入れ替えた2局。勝てば上がり、負ければ下がります。
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    影武者 / KAGEMUSHA<br>
+    <a href="https://github.com/littlesheave-oss/kagemusha">ソースコード</a>
+  </footer>
+
+</div>
+</body>
+</html>
